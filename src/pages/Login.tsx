@@ -9,16 +9,23 @@ import {
     IconButton,
     InputAdornment
 } from '@mui/material';
-import { Google, Visibility, VisibilityOff } from '@mui/icons-material';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
+import { userApi } from '../api/user';
 
 const Login = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        console.log('Login with:', { email, password });
+        try {
+            const response = await userApi.login({ email, password });
+            console.log('Login success:', response);
+            // 存储 token 或跳转到主页
+        } catch (error) {
+            console.error('Login failed:', error);
+        }
     };
 
     return (
@@ -63,7 +70,6 @@ const Login = () => {
                         onChange={(e) => setEmail(e.target.value)}
                         sx={{
                             '& .MuiOutlinedInput-root': { borderRadius: 2 },
-                            '& .MuiInputLabel-root': { transform: 'translate(14px, 14px)' },
                             '& .MuiInputBase-input': { padding: '12px 14px' }
                         }}
                     />
