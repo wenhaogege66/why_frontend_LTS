@@ -2,8 +2,8 @@ import axios from 'axios';
 
 // 定义基础请求配置
 const api = axios.create({
-    baseURL: 'http://localhost:5173/api', // 替换为你的后端API地址
-    timeout: 10000, // 请求超时时间
+    baseURL: 'http://localhost:5173/api',
+    timeout: 10000,
 });
 
 // 定义请求/响应数据类型
@@ -15,6 +15,19 @@ interface LoginParams {
 interface LoginResponse {
     token: string;
     user_id: string;
+}
+
+interface RegisterParams {
+    nickname: string;
+    email: string;
+    password: string;
+}
+
+interface RegisterResponse {
+    user_id: string;
+    email: string;
+    nickname: string;
+    message?: string;
 }
 
 interface ChangePasswordParams {
@@ -43,7 +56,22 @@ export const login = async (params: LoginParams): Promise<LoginResponse> => {
         return response.data;
     } catch (error) {
         handleError(error);
-        throw error; // 继续抛出错误以便组件捕获
+        throw error;
+    }
+};
+
+// 用户注册接口
+export const register = async (params: RegisterParams): Promise<RegisterResponse> => {
+    try {
+        const response = await api.post('/user/register', params, {
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+        return response.data;
+    } catch (error) {
+        handleError(error);
+        throw error;
     }
 };
 
@@ -75,6 +103,7 @@ export const changePassword = async (params: ChangePasswordParams): Promise<void
 // 导出所有接口
 export const userApi = {
     login,
+    register,
     quit,
     changePassword,
 };
