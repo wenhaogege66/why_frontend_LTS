@@ -11,18 +11,20 @@ import {
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { userApi } from '../api/user';
+import { useNavigate } from 'react-router-dom';
 
 const Login = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const navigate = useNavigate(); // 获取导航函数
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
             const response = await userApi.login({ email, password });
             console.log('Login success:', response);
-            // 存储 token 或跳转到主页
+            navigate('/'); // 跳转到主页
         } catch (error) {
             console.error('Login failed:', error);
         }
@@ -121,6 +123,7 @@ const Login = () => {
                 <Button
                     fullWidth
                     variant="contained"
+                    onClick={() => navigate('/register')} // 点击时跳转
                     sx={{
                         mb: 3,
                         py: 1.5,
