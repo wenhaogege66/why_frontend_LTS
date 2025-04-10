@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Box,
     Button,
@@ -9,10 +9,37 @@ import {
     IconButton,
     InputAdornment,
     CircularProgress,
-    Alert
+    Alert,
+    LinearProgress
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { userApi } from '../api/user';
+
+// Password strength checker function
+const checkPasswordStrength = (password: string) => {
+    if (!password) return 0;
+
+    let strength = 0;
+
+    // Length check
+    if (password.length >= 8) strength += 1;
+    if (password.length >= 12) strength += 1;
+
+    // Character variety checks
+    if (/[A-Z]/.test(password)) strength += 1; // Uppercase
+    if (/[a-z]/.test(password)) strength += 1; // Lowercase
+    if (/[0-9]/.test(password)) strength += 1; // Numbers
+    if (/[^A-Za-z0-9]/.test(password)) strength += 1; // Special chars
+
+    // Normalize to 0-100 scale
+    return Math.min(Math.floor((strength / 7) * 100), 100);
+};
+
+const getStrengthColor = (strength: number) => {
+    if (strength < 30) return 'error';
+    if (strength < 70) return 'warning';
+    return 'success';
+};
 
 const Register = () => {
     const [showPassword, setShowPassword] = useState(false);
@@ -21,9 +48,14 @@ const Register = () => {
         email: '',
         password: ''
     });
+    const [passwordStrength, setPasswordStrength] = useState(0);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
+
+    useEffect(() => {
+        setPasswordStrength(checkPasswordStrength(formData.password));
+    }, [formData.password]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -50,6 +82,11 @@ const Register = () => {
 
         if (formData.password.length < 8) {
             setError('Password must be at least 8 characters');
+            return;
+        }
+
+        if (passwordStrength < 50) {
+            setError('Password is too weak. Please use a stronger password.');
             return;
         }
 
@@ -162,6 +199,30 @@ const Register = () => {
                                 '& .MuiInputBase-input': { padding: '12px 14px' }
                             }}
                         />
+
+                        {/* Password strength indicator */}
+                        {formData.password && (
+                            <Box sx={{ mt: 1, mb: 2 }}>
+                                <LinearProgress
+                                    variant="determinate"
+                                    value={passwordStrength}
+                                    color={getStrengthColor(passwordStrength)}
+                                    sx={{
+                                        height: 6,
+                                        borderRadius: 3,
+                                        mb: 1
+                                    }}
+                                />
+                                <Typography variant="caption" color="text.secondary">
+                                    密码强度: {passwordStrength < 30 ? '弱' :
+                                    passwordStrength < 70 ? '中等' : '强'}
+                                </Typography>
+                                <Typography variant="caption" display="block" color="text.secondary">
+                                    建议使用8位以上字符，包含大小写字母、数字和特殊符号
+                                </Typography>
+                            </Box>
+                        )}
+
                         <Button
                             fullWidth
                             type="submit"
