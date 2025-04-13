@@ -12,6 +12,12 @@ const Sidebar = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
         { text: '设置', icon: <Settings />, path: '/settings' },
     ];
 
+    const handleMenuItemClick = (path: string) => {
+        navigate(path);  // 使用navigate跳转到对应路径
+        onClose();       // 关闭侧边栏（如果是移动端）
+    };
+
+
     return (
         <Drawer
             variant="temporary"
@@ -26,7 +32,7 @@ const Sidebar = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
             }}
         >
             <Box sx={{ p: 2, textAlign: 'center' }}>
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                <Typography variant="h5" sx={{ fontWeight: 600, fontFamily: 'ransom' }}>
                     WHY Music
                 </Typography>
             </Box>
@@ -35,10 +41,7 @@ const Sidebar = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
                 {menuItems.map((item) => (
                     <ListItem
                         key={item.text}
-                        onClick={() => {
-                            navigate(item.path);
-                            onClose();
-                        }}
+                        onClick={() => handleMenuItemClick(item.path)}
                         sx={{
                             '&:hover': {
                                 bgcolor: 'rgba(0, 0, 0, 0.04)',

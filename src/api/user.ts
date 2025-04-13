@@ -120,7 +120,7 @@ export const register = async (params: RegisterParams): Promise<RegisterResponse
     }
 };
 
-// 获取用户信息
+// 获取用户信息接口
 export const getProfile = async () => {
     try {
         const response = await api.get('/api/user/profile/');

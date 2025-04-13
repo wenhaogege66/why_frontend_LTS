@@ -209,20 +209,20 @@ const Home = () => {
                     sx={{
                         bgcolor: 'white',
                         color: 'text.primary',
-                        borderBottom: '1px solid #eee'
+                        borderBottom: '1px solid #eee',
                     }}
                 >
                     <Toolbar>
                         <IconButton 
                             edge="start" 
-                            sx={{ mr: 2 }}
+                            sx={{ mr: 2}}
                             onClick={() => setSidebarOpen(true)}
                         >
                             <MenuIcon />
                         </IconButton>
 
-                        <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 500 }}>
-                            WHY 智能音乐推荐
+                        <Typography variant="h5" sx={{ flexGrow: 1, fontWeight: 500, fontFamily: 'ransom' }}>
+                            WHY Music
                         </Typography>
 
                         <TextField

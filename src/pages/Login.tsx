@@ -19,6 +19,7 @@ const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState('');
     const navigate = useNavigate();
 
 
@@ -26,11 +27,18 @@ const Login = () => {
         e.preventDefault();
         setError(null);
 
+        if (!email || !password) {
+            setError('请输入有效和密码');
+            return;
+        }
         try {
             const response = await userApi.login({email, password});
-            if (response.code === 0) {
-                navigate('/');
-            } else {
+            if (response.code === 200) {
+                setSuccess('登录成功！');
+                setTimeout(() => {
+                    navigate('/');
+                }, 1000);
+            }else {
                 setError(response.message || '登录失败');
             }
         } catch (error) {
@@ -148,7 +156,11 @@ const Login = () => {
                     </Alert>
                 )}
 
-                <form onSubmit={handleSubmit}>
+                {success ? (
+                    <Alert severity="success" sx={{ mb: 2 }}>
+                        注册成功！正在跳转到登录页面...
+                    </Alert>
+                ) : (<form onSubmit={handleSubmit}>
                     <TextField
                         fullWidth
                         label="邮箱"
@@ -213,7 +225,7 @@ const Login = () => {
                         登录
                     </Button>
                 </form>
-
+                    )}
                 <Divider sx={{ my: 3, color: 'text.secondary' }}>或</Divider>
 
                 <Typography

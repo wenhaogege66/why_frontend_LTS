@@ -63,16 +63,19 @@ const Register = () => {
 
         try {
             const response = await userApi.register(formData);
-            if (response.code === 0) {
+            setLoading(true);
+            if (response.code === 200) {
                 setSuccess('注册成功！');
                 setTimeout(() => {
                     navigate('/login');
-                }, 2000);
+                }, 1000);
             } else {
                 setError(response.message || '注册失败');
             }
         } catch (err) {
             setError('注册失败，请稍后重试');
+        }finally {
+            setLoading(false);
         }
     };
 
