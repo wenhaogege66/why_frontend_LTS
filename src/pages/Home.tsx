@@ -23,6 +23,7 @@ import { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import { useNavigate } from 'react-router-dom';
 import { userApi } from '../api/user';
+import MusicPlayer from '../components/MusicPlayer';
 
 const Home = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -30,6 +31,9 @@ const Home = () => {
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const navigate = useNavigate();
     const [user, setUser] = useState<any>(null);
+    const [currentSong, setCurrentSong] = useState<any>(null);
+    const [playlist, setPlaylist] = useState<any[]>([]);
+    const [favorites, setFavorites] = useState<number[]>([]);
 
     const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
         setAnchorEl(event.currentTarget);
@@ -52,6 +56,41 @@ const Home = () => {
     const handleLogout = () => {
         userApi.logout();
         navigate('/login');
+    };
+
+    const handlePlaySong = (song: any) => {
+        setCurrentSong(song);
+        if (!playlist.includes(song)) {
+            setPlaylist([...playlist, song]);
+        }
+    };
+
+    const handleNext = () => {
+        if (playlist.length > 0) {
+            const currentIndex = playlist.findIndex(song => song.id === currentSong?.id);
+            const nextIndex = (currentIndex + 1) % playlist.length;
+            setCurrentSong(playlist[nextIndex]);
+        }
+    };
+
+    const handlePrevious = () => {
+        if (playlist.length > 0) {
+            const currentIndex = playlist.findIndex(song => song.id === currentSong?.id);
+            const prevIndex = (currentIndex - 1 + playlist.length) % playlist.length;
+            setCurrentSong(playlist[prevIndex]);
+        }
+    };
+
+    const handleToggleFavorite = () => {
+        if (currentSong) {
+            setFavorites(prev => {
+                if (prev.includes(currentSong.id)) {
+                    return prev.filter(id => id !== currentSong.id);
+                } else {
+                    return [...prev, currentSong.id];
+                }
+            });
+        }
     };
 
     const musicTags = ['全部', '流行', '摇滚', '民谣', '电子', '古典', '爵士', '说唱'];
@@ -83,6 +122,7 @@ const Home = () => {
             title: "Morning Energy",
             artist: "Electronic Vibes",
             coverUrl: "https://picsum.photos/300/300?random=4",
+            audioUrl: "https://example.com/audio1.mp3",
             tags: ["Workout", "Energetic"]
         },
         {
@@ -90,6 +130,7 @@ const Home = () => {
             title: "Chill Vibes",
             artist: "Relaxation Station",
             coverUrl: "https://picsum.photos/300/300?random=5",
+            audioUrl: "https://example.com/audio2.mp3",
             tags: ["Relax", "Ambient"]
         },
         {
@@ -97,6 +138,7 @@ const Home = () => {
             title: "Focus Mode",
             artist: "Study Beats",
             coverUrl: "https://picsum.photos/300/300?random=6",
+            audioUrl: "https://example.com/audio3.mp3",
             tags: ["Study", "Concentration"]
         },
         {
@@ -104,6 +146,7 @@ const Home = () => {
             title: "Party Time",
             artist: "Dance Floor",
             coverUrl: "https://picsum.photos/300/300?random=7",
+            audioUrl: "https://example.com/audio4.mp3",
             tags: ["Party", "Dance"]
         }
     ];
@@ -114,6 +157,7 @@ const Home = () => {
             title: "Summer Vibes",
             artist: "Beach Boys",
             coverUrl: "https://picsum.photos/300/300?random=8",
+            audioUrl: "https://example.com/audio5.mp3",
             tags: ["Summer", "Pop"]
         },
         {
@@ -121,6 +165,7 @@ const Home = () => {
             title: "Night Drive",
             artist: "City Lights",
             coverUrl: "https://picsum.photos/300/300?random=9",
+            audioUrl: "https://example.com/audio6.mp3",
             tags: ["Night", "Drive"]
         }
     ];
@@ -146,7 +191,8 @@ const Home = () => {
             display: 'flex', 
             minHeight: '100vh',
             width: '100vw',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            pb: 7 // 为播放器留出空间
         }}>
             <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
             
@@ -190,12 +236,29 @@ const Home = () => {
                             }}
                             sx={{
                                 width: 400,
-                                '& .MuiOutlinedInput-root': { borderRadius: 4 }
+                                '& .MuiOutlinedInput-root': { 
+                                    borderRadius: 4,
+                                    '&:hover': {
+                                        '& .MuiOutlinedInput-notchedOutline': {
+                                            borderColor: 'primary.main',
+                                        },
+                                    },
+                                },
+                                '& .MuiOutlinedInput-input': {
+                                    py: 1,
+                                }
                             }}
                         />
 
                         <Box sx={{ display: 'flex', ml: 2 }}>
-                            <IconButton>
+                            <IconButton
+                                sx={{
+                                    '&:hover': {
+                                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                                        borderRadius: '50%',
+                                    },
+                                }}
+                            >
                                 <Notifications />
                             </IconButton>
                             <IconButton
@@ -400,6 +463,7 @@ const Home = () => {
                                                         transform: 'translate(-50%, -50%) scale(1.2)'
                                                     }
                                                 }}
+                                                onClick={() => handlePlaySong(song)}
                                             >
                                                 <PlayArrow sx={{ color: 'primary.main' }} />
                                             </IconButton>
@@ -518,6 +582,17 @@ const Home = () => {
                     </Box>
                 </Container>
             </Box>
+
+            {/* 添加音乐播放器 */}
+            {currentSong && (
+                <MusicPlayer
+                    currentSong={currentSong}
+                    onNext={handleNext}
+                    onPrevious={handlePrevious}
+                    onToggleFavorite={handleToggleFavorite}
+                    isFavorite={favorites.includes(currentSong.id)}
+                />
+            )}
         </Box>
     );
 };
