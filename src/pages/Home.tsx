@@ -18,16 +18,18 @@ import {
     ListItemIcon,
     ListItemText
 } from '@mui/material';
-import { Search, Menu as MenuIcon, Notifications, AccountCircle, PlayArrow, Login, PersonAdd } from '@mui/icons-material';
-import { useState } from 'react';
+import { Search, Menu as MenuIcon, Notifications, AccountCircle, PlayArrow, Login, PersonAdd, Logout } from '@mui/icons-material';
+import { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import { useNavigate } from 'react-router-dom';
+import { userApi } from '../api/user';
 
 const Home = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [selectedTag, setSelectedTag] = useState('全部');
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const navigate = useNavigate();
+    const [user, setUser] = useState<any>(null);
 
     const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
         setAnchorEl(event.currentTarget);
@@ -45,6 +47,11 @@ const Home = () => {
     const handleRegister = () => {
         handleClose();
         navigate('/register');
+    };
+
+    const handleLogout = () => {
+        userApi.logout();
+        navigate('/login');
     };
 
     const musicTags = ['全部', '流行', '摇滚', '民谣', '电子', '古典', '爵士', '说唱'];
@@ -117,6 +124,22 @@ const Home = () => {
             tags: ["Night", "Drive"]
         }
     ];
+
+    // 获取用户信息
+    useEffect(() => {
+        const fetchUserProfile = async () => {
+            try {
+                const response = await userApi.getProfile();
+                if (response.code === 0) {
+                    setUser(response.data);
+                }
+            } catch (error) {
+                console.error('获取用户信息失败:', error);
+            }
+        };
+
+        fetchUserProfile();
+    }, []);
 
     return (
         <Box sx={{ 
@@ -206,18 +229,37 @@ const Home = () => {
                                     }
                                 }}
                             >
-                                <MenuItem onClick={handleLogin}>
-                                    <ListItemIcon>
-                                        <Login fontSize="small" />
-                                    </ListItemIcon>
-                                    <ListItemText>登录</ListItemText>
-                                </MenuItem>
-                                <MenuItem onClick={handleRegister}>
-                                    <ListItemIcon>
-                                        <PersonAdd fontSize="small" />
-                                    </ListItemIcon>
-                                    <ListItemText>注册</ListItemText>
-                                </MenuItem>
+                                {user ? (
+                                    <>
+                                        <MenuItem onClick={handleClose}>
+                                            <ListItemIcon>
+                                                <AccountCircle fontSize="small" />
+                                            </ListItemIcon>
+                                            <ListItemText>{user.nickname}</ListItemText>
+                                        </MenuItem>
+                                        <MenuItem onClick={handleLogout}>
+                                            <ListItemIcon>
+                                                <Logout fontSize="small" />
+                                            </ListItemIcon>
+                                            <ListItemText>退出登录</ListItemText>
+                                        </MenuItem>
+                                    </>
+                                ) : (
+                                    <>
+                                        <MenuItem onClick={handleLogin}>
+                                            <ListItemIcon>
+                                                <Login fontSize="small" />
+                                            </ListItemIcon>
+                                            <ListItemText>登录</ListItemText>
+                                        </MenuItem>
+                                        <MenuItem onClick={handleRegister}>
+                                            <ListItemIcon>
+                                                <PersonAdd fontSize="small" />
+                                            </ListItemIcon>
+                                            <ListItemText>注册</ListItemText>
+                                        </MenuItem>
+                                    </>
+                                )}
                             </Menu>
                         </Box>
                     </Toolbar>

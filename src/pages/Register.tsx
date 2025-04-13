@@ -13,17 +13,20 @@ import {
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { userApi } from '../api/user';
+import { useNavigate } from 'react-router-dom';
 
 const Register = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [formData, setFormData] = useState({
         nickname: '',
         email: '',
-        password: ''
+        password: '',
+        confirmPassword: ''
     });
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+    const navigate = useNavigate();
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -35,34 +38,41 @@ const Register = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError(null);
+        setError('');
 
-        // Validation
-        if (!formData.nickname || !formData.email || !formData.password) {
-            setError('Please fill in all fields');
+        // 验证表单
+        if (!formData.email || !formData.password || !formData.confirmPassword || !formData.nickname) {
+            setError('请填写所有必填字段');
+            return;
+        }
+
+        if (formData.password !== formData.confirmPassword) {
+            setError('两次输入的密码不一致');
+            return;
+        }
+
+        if (formData.password.length < 6) {
+            setError('密码长度至少为6位');
             return;
         }
 
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-            setError('Please enter a valid email address');
-            return;
-        }
-
-        if (formData.password.length < 8) {
-            setError('Password must be at least 8 characters');
+            setError('请输入有效的邮箱地址');
             return;
         }
 
         try {
-            setLoading(true);
             const response = await userApi.register(formData);
-            console.log('Registration success:', response);
-            setSuccess(true);
-        } catch (error) {
-            console.error('Registration failed:', error);
-            setError(error instanceof Error ? error.message : 'Registration failed. Please try again.');
-        } finally {
-            setLoading(false);
+            if (response.code === 0) {
+                setSuccess('注册成功！');
+                setTimeout(() => {
+                    navigate('/login');
+                }, 2000);
+            } else {
+                setError(response.message || '注册失败');
+            }
+        } catch (err) {
+            setError('注册失败，请稍后重试');
         }
     };
 
@@ -106,7 +116,7 @@ const Register = () => {
 
                 {success ? (
                     <Alert severity="success" sx={{ mb: 2 }}>
-                        注册成功！请检查您的邮箱进行验证。
+                        注册成功！正在跳转到登录页面...
                     </Alert>
                 ) : (
                     <form onSubmit={handleSubmit}>
@@ -118,6 +128,7 @@ const Register = () => {
                             margin="normal"
                             value={formData.nickname}
                             onChange={handleChange}
+                            required
                             sx={{
                                 '& .MuiOutlinedInput-root': { borderRadius: 2 },
                                 '& .MuiInputBase-input': { padding: '12px 14px' }
@@ -131,6 +142,7 @@ const Register = () => {
                             margin="normal"
                             value={formData.email}
                             onChange={handleChange}
+                            required
                             sx={{
                                 '& .MuiOutlinedInput-root': { borderRadius: 2 },
                                 '& .MuiInputBase-input': { padding: '12px 14px' }
@@ -145,6 +157,34 @@ const Register = () => {
                             margin="normal"
                             value={formData.password}
                             onChange={handleChange}
+                            required
+                            InputProps={{
+                                endAdornment: (
+                                    <InputAdornment position="end">
+                                        <IconButton
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            edge="end"
+                                        >
+                                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                                        </IconButton>
+                                    </InputAdornment>
+                                ),
+                            }}
+                            sx={{
+                                '& .MuiOutlinedInput-root': { borderRadius: 2 },
+                                '& .MuiInputBase-input': { padding: '12px 14px' }
+                            }}
+                        />
+                        <TextField
+                            fullWidth
+                            label="确认密码"
+                            name="confirmPassword"
+                            type={showPassword ? 'text' : 'password'}
+                            variant="outlined"
+                            margin="normal"
+                            value={formData.confirmPassword}
+                            onChange={handleChange}
+                            required
                             InputProps={{
                                 endAdornment: (
                                     <InputAdornment position="end">
@@ -185,7 +225,7 @@ const Register = () => {
                 <Button
                     fullWidth
                     variant="contained"
-                    href="/login"
+                    onClick={() => navigate('/login')}
                     sx={{
                         mb: 3,
                         py: 1.5,

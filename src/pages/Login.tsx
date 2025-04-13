@@ -7,7 +7,8 @@ import {
     Paper,
     Divider,
     IconButton,
-    InputAdornment
+    InputAdornment,
+    Alert
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { userApi } from '../api/user';
@@ -17,16 +18,22 @@ const Login = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const navigate = useNavigate(); // 获取导航函数
+    const [error, setError] = useState<string | null>(null);
+    const navigate = useNavigate();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setError(null);
+        
         try {
             const response = await userApi.login({ email, password });
-            console.log('Login success:', response);
-            navigate('/'); // 跳转到主页
+            if (response.code === 0) {
+                navigate('/');
+            } else {
+                setError(response.message || '登录失败');
+            }
         } catch (error) {
-            console.error('Login failed:', error);
+            setError('登录失败，请检查网络连接');
         }
     };
 
@@ -36,12 +43,12 @@ const Login = () => {
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center',
-                minHeight: '100vh', // 关键：确保容器高度至少为视口高度
-                width: '100vw',    // 关键：宽度铺满视口
+                minHeight: '100vh',
+                width: '100vw',
                 background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
-                p: 0,              // 移除默认内边距
-                m: 0,              // 移除默认外边距
-                overflow: 'hidden'  // 隐藏滚动条
+                p: 0,
+                m: 0,
+                overflow: 'hidden'
             }}
         >
             <Paper
@@ -62,6 +69,12 @@ const Login = () => {
                     登录您的账号
                 </Typography>
 
+                {error && (
+                    <Alert severity="error" sx={{ mb: 2 }}>
+                        {error}
+                    </Alert>
+                )}
+
                 <form onSubmit={handleSubmit}>
                     <TextField
                         fullWidth
@@ -70,6 +83,7 @@ const Login = () => {
                         margin="normal"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
+                        required
                         sx={{
                             '& .MuiOutlinedInput-root': { borderRadius: 2 },
                             '& .MuiInputBase-input': { padding: '12px 14px' }
@@ -83,19 +97,18 @@ const Login = () => {
                         margin="normal"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        slotProps={{
-                            input:{
-                                endAdornment: (
-                                    <InputAdornment position="end">
-                                        <IconButton
-                                            onClick={() => setShowPassword(!showPassword)}
-                                            edge="end"
-                                        >
-                                            {showPassword ? <VisibilityOff /> : <Visibility />}
-                                        </IconButton>
-                                    </InputAdornment>
-                                )
-                            },
+                        required
+                        InputProps={{
+                            endAdornment: (
+                                <InputAdornment position="end">
+                                    <IconButton
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        edge="end"
+                                    >
+                                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                                    </IconButton>
+                                </InputAdornment>
+                            ),
                         }}
                         sx={{
                             '& .MuiOutlinedInput-root': { borderRadius: 2 },
@@ -123,7 +136,7 @@ const Login = () => {
                 <Button
                     fullWidth
                     variant="contained"
-                    onClick={() => navigate('/register')} // 点击时跳转
+                    onClick={() => navigate('/register')}
                     sx={{
                         mb: 3,
                         py: 1.5,
@@ -134,7 +147,6 @@ const Login = () => {
                 >
                     注册新账号
                 </Button>
-
             </Paper>
         </Box>
     );
