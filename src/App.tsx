@@ -4,6 +4,7 @@ import Login from './pages/Login';
 import Home from './pages/Home';
 import Register from './pages/Register';
 import SongDetail from './pages/SongDetail';
+import './font.css';
 
 function App() {
     return (

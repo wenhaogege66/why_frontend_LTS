@@ -76,6 +76,46 @@ const Register = () => {
         }
     };
 
+    const ColorfulWaveBackground = () => (
+        <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            zIndex: 0,
+            overflow: 'hidden',
+            background: 'linear-gradient(135deg, #f3e5f5 0%, #e8eaf6 100%)'
+        }}>
+            <svg
+                width="100%"
+                height="100%"
+                preserveAspectRatio="none"
+                viewBox="0 0 1000 200"
+                style={{ opacity: 0.5 }}
+            >
+                <path
+                    d="M0,100 C150,200 350,0 500,100 C650,200 850,0 1000,100"
+                    stroke="#ab47bc"
+                    strokeWidth="2"
+                    fill="none"
+                />
+                <path
+                    d="M0,120 C150,220 350,20 500,120 C650,220 850,20 1000,120"
+                    stroke="#7e57c2"
+                    strokeWidth="2"
+                    fill="none"
+                />
+                <path
+                    d="M0,80 C150,180 350,-20 500,80 C650,180 850,-20 1000,80"
+                    stroke="#42a5f5"
+                    strokeWidth="2"
+                    fill="none"
+                />
+            </svg>
+        </div>
+    );
+
     return (
         <Box
             sx={{
@@ -90,6 +130,7 @@ const Register = () => {
                 overflow: 'hidden'
             }}
         >
+            <ColorfulWaveBackground />
             <Paper
                 elevation={3}
                 sx={{
@@ -101,10 +142,29 @@ const Register = () => {
                     backdropFilter: 'blur(10px)'
                 }}
             >
-                <Typography variant="h4" align="center" gutterBottom sx={{ fontWeight: 500 }}>
-                    欢迎来到 WHY Music
+                <Typography
+                    variant="h2"
+                    align="center"
+                    gutterBottom
+                    sx={{
+                        fontWeight: 500,
+                        fontFamily: 'ransom',
+                        background: 'linear-gradient(90deg, #ff00ff, #ff0066, #6600ff, #00ccff, #6600ff, #ff0066)',
+                        backgroundSize: '600% 100%',
+                        WebkitBackgroundClip: 'text',
+                        backgroundClip: 'text',
+                        color: 'transparent',
+                        animation: 'rainbow 6s linear infinite',
+                        textShadow: '0 2px 4px rgba(0,0,0,0.2)', // 添加轻微阴影提升立体感
+                        '@keyframes rainbow': {
+                            '0%': { backgroundPosition: '0% 50%' },
+                            '100%': { backgroundPosition: '100% 50%' },
+                        },
+                    }}
+                >
+                    WHY Music
                 </Typography>
-                <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 4 }}>
+                <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 2 }}>
                     创建您的账号
                 </Typography>
 
@@ -211,7 +271,7 @@ const Register = () => {
                                 mt: 3,
                                 py: 1.5,
                                 borderRadius: 2,
-                                background: 'linear-gradient(45deg, #4285F4 0%, #34A853 100%)',
+                                background: 'linear-gradient(20deg, #920FA5 0%, #3FFFEF 100%)',
                                 '&:hover': { opacity: 0.9 }
                             }}
                         >
@@ -220,22 +280,22 @@ const Register = () => {
                     </form>
                 )}
 
-                <Divider sx={{ my: 3, color: 'text.secondary' }}>已有账号？</Divider>
-
-                <Button
-                    fullWidth
-                    variant="contained"
-                    onClick={() => navigate('/login')}
+                <Divider sx={{ my: 3, color: 'text.secondary' }}>或</Divider>
+                <Typography
                     sx={{
-                        mb: 3,
-                        py: 1.5,
-                        borderRadius: 2,
-                        background: 'linear-gradient(20deg, #920FA5 0%, #3FFFEF 100%)',
-                        '&:hover': { opacity: 0.9 }
+                        textAlign: 'center',
+                        '& > span': { // 对内部的 span 添加样式
+                            color: '#0f73a5',
+                            cursor: 'pointer',
+                            '&:hover': {
+                                textDecoration: 'underline',
+                            },
+                        },
                     }}
                 >
-                    前往登录
-                </Button>
+                    已有帐号？
+                    <span onClick={() => navigate('/login')}>前往登录</span>
+                </Typography>
             </Paper>
         </Box>
     );

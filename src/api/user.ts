@@ -68,6 +68,22 @@ interface ChangePasswordParams {
     code?: number;
 }
 
+interface ChangePasswordResponse{
+    code?: number;
+    message?: string;
+}
+
+interface UpdateProfileParams {
+    nickname?: string;  // 可选昵称
+    avatar_url?: string; // 可选头像
+}
+
+interface UpdateProfileResponse {
+    code?: number;
+    message?: string;
+}
+
+
 // 错误处理函数
 const handleError = (error: unknown) => {
     if (axios.isAxiosError(error)) {
@@ -115,24 +131,41 @@ export const getProfile = async () => {
     }
 };
 
+// 用户修改个人信息接口
+export const updateProfile = async (params: UpdateProfileParams): Promise<UpdateProfileResponse> => {
+    try {
+        const response = await api.put('/user/update/profile', params, {
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+        return response.data;
+    } catch (error) {
+        handleError(error);
+        throw error;
+    }
+};
+
 // 用户退出接口
 export const logout = () => {
     localStorage.removeItem('token');
 };
 
 // 用户修改密码接口
-export const changePassword = async (params: ChangePasswordParams): Promise<void> => {
+export const changePassword = async (params: ChangePasswordParams): Promise<ChangePasswordResponse> => {
     try {
         const formData = new FormData();
         formData.append('password', params.password);
 
-        await api.put('/user/update/password', formData, {
+        const response = await api.put('/user/update/password', formData, {
             headers: {
                 'Content-Type': 'multipart/form-data',
             },
         });
+        return response.data;
     } catch (error) {
         handleError(error);
+        throw error;
     }
 };
 
@@ -143,4 +176,5 @@ export const userApi = {
     logout,
     changePassword,
     getProfile,
+    updateProfile,
 };

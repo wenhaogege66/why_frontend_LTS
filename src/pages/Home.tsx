@@ -252,12 +252,7 @@ const Home = () => {
 
                         <Box sx={{ display: 'flex', ml: 2 }}>
                             <IconButton
-                                sx={{
-                                    '&:hover': {
-                                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                                        borderRadius: '50%',
-                                    },
-                                }}
+                                size="large"
                             >
                                 <Notifications />
                             </IconButton>

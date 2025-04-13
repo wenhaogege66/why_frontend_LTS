@@ -1,0 +1,15 @@
+@font-face {
+    font-family: Huawenxinwei;
+    src: url("../public/font/华文新魏.ttf");
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap; /* 先显示回退字体，加载后替换 */
+}
+
+@font-face {
+    font-family: ransom;
+    src: url("../public/font/ransom.ttf");
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap; /* 先显示回退字体，加载后替换 */
+}
