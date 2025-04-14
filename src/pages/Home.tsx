@@ -175,7 +175,7 @@ const Home = () => {
         const fetchUserProfile = async () => {
             try {
                 const response = await userApi.getProfile();
-                if (response.code === 0) {
+                if (response.code === 200) {
                     setUser(response.data);
                 }
             } catch (error) {

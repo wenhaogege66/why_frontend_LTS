@@ -10,7 +10,8 @@ import {
     InputAdornment,
     AppBar,
     Grid,
-    CircularProgress, Alert
+    // CircularProgress,
+    Alert
 } from '@mui/material';
 import {
     Visibility,
@@ -30,11 +31,11 @@ interface UserProfile {
 const Settings = () => {
     const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const [loading, setLoading] = useState({
-        profile: true,
-        updating: false,
-        changingPassword: false
-    });
+    // const [loading, setLoading] = useState({
+    //     profile: true,
+    //     updating: false,
+    //     changingPassword: false
+    // });
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [error, setError] = useState<string | null>(null);
     //@ts-ignore
@@ -59,7 +60,9 @@ const Settings = () => {
     });
 
     // 头像文件状态
+    // @ts-ignore
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
+    // @ts-ignore
     const [avatarPreview, setAvatarPreview] = useState<string | null>();
     // 在Settings组件顶部添加测试URL
     const TEST_AVATAR_URL = "data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiA/PjxzdmcgaWQ9Im9iamVjdCIgdmlld0JveD0iMCAwIDMyIDMyIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxkZWZzPjxzdHlsZT4uY2xzLTF7ZmlsbDojOTZkN2ZmO30uY2xzLTJ7ZmlsbDojODZjM2VmO30uY2xzLTN7ZmlsbDojYmY5ZTk5O30uY2xzLTR7ZmlsbDojZmY5Nzk3O30uY2xzLTV7ZmlsbDojZTQ3OTc5O30uY2xzLTZ7ZmlsbDojZWNjNWI0O30uY2xzLTd7ZmlsbDojZjRkYWI3O30uY2xzLTh7ZmlsbDojZDZiNWIwO308L3N0eWxlPjwvZGVmcz48dGl0bGUvPjxjaXJjbGUgY2xhc3M9ImNscy0xIiBjeD0iMTYiIGN5PSIxNiIgcj0iMTUiLz48cGF0aCBjbGFzcz0iY2xzLTIiIGQ9Ik0yLjM1LDE3QTE1LDE1LDAsMCwxLDI1LjU5LDQuNDhhMTUsMTUsMCwxLDAtMTcuODMsMjRBMTUsMTUsMCwwLDEsMi4zNSwxN1oiLz48cGF0aCBjbGFzcz0iY2xzLTMiIGQ9Ik0xNiw2LjA5YTcuMzEsNy4zMSwwLDAsMC03LjMsNy4zdjE1LjFhMSwxLDAsMCwwLC41NS44OSwxNC44NywxNC44NywwLDAsMCwxMy41LDAsMSwxLDAsMCwwLC41NS0uODlWMTMuMzlBNy4zMSw3LjMxLDAsMCwwLDE2LDYuMDlaIi8+PHBhdGggY2xhc3M9ImNscy00IiBkPSJNMTYsMzFhMTQuODgsMTQuODgsMCwwLDAsMTAuMDktMy45NC42Mi42MiwwLDAsMCwwLS4yMyw2LjY1LDYuNjUsMCwwLDAtNi4zLTQuNTRoLTcuNUE2LjY1LDYuNjUsMCwwLDAsNiwyNi44M2EuNjIuNjIsMCwwLDAsMCwuMjNBMTQuODgsMTQuODgsMCwwLDAsMTYsMzFaIi8+PHBhdGggY2xhc3M9ImNscy01IiBkPSJNNi41MSwyNy4zOWE2LjY3LDYuNjcsMCwwLDEsNi4zLTQuNTRoNy41MWE2LjYyLDYuNjIsMCwwLDEsNC4zOCwxLjY4LDYuNjUsNi42NSwwLDAsMC00Ljk1LTIuMjRoLTcuNUE2LjY1LDYuNjUsMCwwLDAsNiwyNi44M2EuNjIuNjIsMCwwLDAsMCwuMjNjLjE4LjE3LjM4LjMyLjU3LjQ4QS44LjgsMCwwLDEsNi41MSwyNy4zOVoiLz48cGF0aCBjbGFzcz0iY2xzLTYiIGQ9Ik0xOC43LDE1LjgzSDEzLjNhMSwxLDAsMCwwLTEsMVYyMy4zYTEsMSwwLDAsMCwuNDUuODNsMi43LDEuOGExLDEsMCwwLDAsMS4xLDBsMi43LTEuOGExLDEsMCwwLDAsLjQ1LS44M1YxNi44M0ExLDEsMCwwLDAsMTguNywxNS44M1oiLz48cGF0aCBjbGFzcz0iY2xzLTYiIGQ9Ik0yMS41LDEyLjc3aC0xMWEzLDMsMCwwLDAsMCw2aDExYTMsMywwLDAsMCwwLTZaIi8+PHBhdGggY2xhc3M9ImNscy03IiBkPSJNMTguNDYsOUgxMy41NGEzLjQ5LDMuNDksMCwwLDAtMy40OSwzLjQ5djMuMzZhNS45NSw1Ljk1LDAsMCwwLDExLjksMFYxMi40NkEzLjQ5LDMuNDksMCwwLDAsMTguNDYsOVoiLz48cGF0aCBjbGFzcz0iY2xzLTgiIGQ9Ik0yMy4yLDEyLjY2bC4wNiwwQTcuMjgsNy4yOCwwLDAsMCwxMi44OCw2LjhhMS4wOCwxLjA4LDAsMCwwLC4wNi43Nyw5Ljc1LDkuNzUsMCwwLDAsMi45NCwzLjU4LDguODQsOC44NCwwLDAsMCw1LjI4LDEuNzZBOSw5LDAsMCwwLDIzLjIsMTIuNjZaIi8+PHBhdGggY2xhc3M9ImNscy04IiBkPSJNMTksNi43NkE3LjI5LDcuMjksMCwwLDAsOC43LDEzLjM5di4zOWE3Ljg1LDcuODUsMCwwLDAsMS4xOS4wOSw5LjI2LDkuMjYsMCwwLDAsNy0zLjIxQTEwLjQ1LDEwLjQ1LDAsMCwwLDE5LDYuOFoiLz48L3N2Zz4=";
@@ -68,9 +71,9 @@ const Settings = () => {
     useEffect(() => {
         const fetchProfile = async () => {
             try {
-                setLoading(prev => ({ ...prev, profile: true }));
+                // setLoading(prev => ({ ...prev, profile: true }));
                 const data = await userApi.getProfile();
-                setProfile(data);
+                setProfile(data.data);
                 setUserInfo({
                     nickname: data.nickname,
                     avatar_url: data.avatar_url || '',
@@ -80,7 +83,7 @@ const Settings = () => {
                 setError('获取用户信息失败');
                 console.error(err);
             } finally {
-                setLoading(prev => ({ ...prev, profile: false }));
+                // setLoading(prev => ({ ...prev, profile: false }));
             }
         };
 
@@ -117,7 +120,6 @@ const Settings = () => {
         if (name === 'newPassword') {
             setPasswordStrength(calculatePasswordStrength(value));
         }
-
     };
 
     // 提交用户信息更新
@@ -127,7 +129,7 @@ const Settings = () => {
         setSuccess(null);
 
         try {
-            setLoading(prev => ({ ...prev, updating: true }));
+            // setLoading(prev => ({ ...prev, updating: true }));
 
             // 准备更新数据
             const updateData: { nickname?: string; avatar_url?: string } = {};
@@ -168,7 +170,7 @@ const Settings = () => {
         } catch (err) {
             console.error(err);
         } finally {
-            setLoading(prev => ({ ...prev, updating: false }));
+            // setLoading(prev => ({ ...prev, updating: false }));
         }
     };
 
@@ -189,7 +191,7 @@ const Settings = () => {
         }
 
         try {
-            setLoading(prev => ({ ...prev, changingPassword: true }));
+            // setLoading(prev => ({ ...prev, changingPassword: true }));
 
             const response = await userApi.changePassword({
                 password: passwordInfo.newPassword
@@ -207,7 +209,7 @@ const Settings = () => {
             setError('修改密码失败');
             console.error(err);
         } finally {
-            setLoading(prev => ({ ...prev, changingPassword: false }));
+            // setLoading(prev => ({ ...prev, changingPassword: false }));
         }
     };
 
@@ -216,24 +218,24 @@ const Settings = () => {
     };
 
     // 加载个人信息动画 调试时可注释
-    if (loading && !profile) {
-        return (
-            <Box sx={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                width: '100vw',
-                height: '100vh',
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                zIndex: 9999,  // 确保在最上层
-                backgroundColor: 'rgba(0, 0, 0, 0.1)'  // 可选背景遮罩
-            }}>
-                <CircularProgress size={60} thickness={4} />
-            </Box>
-        );
-    }
+    // if (loading && !profile) {
+    //     return (
+    //         <Box sx={{
+    //             display: 'flex',
+    //             justifyContent: 'center',
+    //             alignItems: 'center',
+    //             width: '100vw',
+    //             height: '100vh',
+    //             position: 'fixed',
+    //             top: 0,
+    //             left: 0,
+    //             zIndex: 9999,  // 确保在最上层
+    //             backgroundColor: 'rgba(0, 0, 0, 0.1)'  // 可选背景遮罩
+    //         }}>
+    //             <CircularProgress size={60} thickness={4} />
+    //         </Box>
+    //     );
+    // }
 
     // 在组件顶部添加密码强度计算函数
     const calculatePasswordStrength = (password: string) => {
