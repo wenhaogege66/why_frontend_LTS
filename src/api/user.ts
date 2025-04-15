@@ -47,7 +47,7 @@ interface LoginParams {
 interface LoginResponse {
     token: string;
     user_id: string;
-    message?: string;
+    message: string;
     code?: number;
 }
 
@@ -55,7 +55,6 @@ interface RegisterParams {
     nickname: string;
     email: string;
     password: string;
-    code?: number;
 }
 
 interface RegisterResponse {
@@ -65,12 +64,12 @@ interface RegisterResponse {
 
 interface ChangePasswordParams {
     password: string;
-    code?: number;
+    new_password: string;
 }
 
 interface ChangePasswordResponse{
-    code?: number;
-    message?: string;
+    code: number;
+    message: string;
 }
 
 interface UpdateProfileParams {
@@ -80,7 +79,7 @@ interface UpdateProfileParams {
 
 interface UpdateProfileResponse {
     code?: number;
-    message?: string;
+    message: string;
 }
 
 
@@ -134,7 +133,7 @@ export const getProfile = async () => {
 // 用户修改个人信息接口
 export const updateProfile = async (params: UpdateProfileParams): Promise<UpdateProfileResponse> => {
     try {
-        const response = await api.put('/user/update/profile', params, {
+        const response = await api.put('api/user/update/', params, {
             headers: {
                 'Content-Type': 'application/json',
             },
@@ -154,10 +153,7 @@ export const logout = () => {
 // 用户修改密码接口
 export const changePassword = async (params: ChangePasswordParams): Promise<ChangePasswordResponse> => {
     try {
-        const formData = new FormData();
-        formData.append('password', params.password);
-
-        const response = await api.put('/user/update/password', formData, {
+        const response = await api.put('api/user/update/password/', params, {
             headers: {
                 'Content-Type': 'multipart/form-data',
             },

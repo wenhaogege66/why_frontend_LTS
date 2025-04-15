@@ -8,7 +8,7 @@ import {
     Divider,
     IconButton,
     InputAdornment,
-    Alert
+    Alert, CircularProgress
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { userApi } from '../api/user';
@@ -18,14 +18,14 @@ const Login = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState<string | null>(null);
+    const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const navigate = useNavigate();
-
+    const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError(null);
+        setError('');
 
         if (!email || !password) {
             setError('请输入有效和密码');
@@ -33,16 +33,36 @@ const Login = () => {
         }
         try {
             const response = await userApi.login({email, password});
+            setLoading(true);
             if (response.code === 200) {
                 setSuccess('登录成功！');
                 setTimeout(() => {
                     navigate('/');
                 }, 1000);
             }else {
-                setError(response.message || '登录失败');
+                setError(response.message);
             }
-        } catch (error) {
-            setError('登录失败，请检查网络连接');
+        } catch (err: any) { // 使用 any 或更具体的错误类型
+            console.error("登录 API 调用失败:", err); // 在开发中打印完整错误以供调试
+            if (err.response && err.response.data && err.response.data.message) {
+                let errorMessage = err.response.data.message;
+                if (err.response.data.errors) {
+
+                    const errorDetails = Object.values(err.response.data.errors)
+                        .map((fieldErrors: any) => fieldErrors[0]) // 取每个字段的第一个错误
+                        .join('; ');
+                    errorMessage += `: ${errorDetails}`;
+                }
+                setError(errorMessage);
+            } else if (err.message) {
+                // 如果没有 response 对象，可能是网络错误或其他客户端错误
+                setError(`登录请求失败: ${err.message}`);
+            } else {
+                // 最后的回退方案
+                setError('登录失败，请稍后重试');
+            }
+        } finally {
+            setLoading(false); // 确保 loading 总是被关闭
         }
     };
 
@@ -158,7 +178,7 @@ const Login = () => {
 
                 {success ? (
                     <Alert severity="success" sx={{ mb: 2 }}>
-                        注册成功！正在跳转到登录页面...
+                        登录成功！正在跳转到主页面...
                     </Alert>
                 ) : (<form onSubmit={handleSubmit}>
                     <TextField
@@ -214,6 +234,7 @@ const Login = () => {
                         fullWidth
                         type="submit"
                         variant="contained"
+                        disabled={loading}
                         sx={{
                             mt: 3,
                             py: 1.5,
@@ -222,7 +243,7 @@ const Login = () => {
                             '&:hover': { opacity: 0.9 },
                         }}
                     >
-                        登录
+                       {loading ? <CircularProgress size={24} color="inherit" /> : '登录'}
                     </Button>
                 </form>
                     )}

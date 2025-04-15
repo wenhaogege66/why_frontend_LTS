@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import {useEffect, useState} from 'react';
 import {
     Box,
     Button,
@@ -16,32 +16,6 @@ import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { userApi } from '../api/user';
 import { useNavigate } from 'react-router-dom';
 
-// Password strength checker function
-const checkPasswordStrength = (password: string) => {
-    if (!password) return 0;
-
-    let strength = 0;
-
-    // Length check
-    if (password.length >= 8) strength += 1;
-    if (password.length >= 12) strength += 1;
-
-    // Character variety checks
-    if (/[A-Z]/.test(password)) strength += 1; // Uppercase
-    if (/[a-z]/.test(password)) strength += 1; // Lowercase
-    if (/[0-9]/.test(password)) strength += 1; // Numbers
-    if (/[^A-Za-z0-9]/.test(password)) strength += 1; // Special chars
-
-    // Normalize to 0-100 scale
-    return Math.min(Math.floor((strength / 7) * 100), 100);
-};
-
-const getStrengthColor = (strength: number) => {
-    if (strength < 30) return 'error';
-    if (strength < 70) return 'warning';
-    return 'success';
-};
-
 const Register = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [formData, setFormData] = useState({
@@ -56,6 +30,31 @@ const Register = () => {
     const [success, setSuccess] = useState('');
     const navigate = useNavigate();
 
+    const getStrengthColor = (strength: number) => {
+        if (strength < 30) return 'error';
+        if (strength < 70) return 'warning';
+        return 'success';
+    };
+
+    // Password strength checker function
+    const checkPasswordStrength = (password: string) => {
+        if (!password) return 0;
+
+        let strength = 0;
+
+        // Length check
+        if (password.length >= 8) strength += 1;
+        if (password.length >= 12) strength += 1;
+
+        // Character variety checks
+        if (/[A-Z]/.test(password)) strength += 1; // Uppercase
+        if (/[a-z]/.test(password)) strength += 1; // Lowercase
+        if (/[0-9]/.test(password)) strength += 1; // Numbers
+        if (/[^A-Za-z0-9]/.test(password)) strength += 1; // Special chars
+
+        // Normalize to 0-100 scale
+        return Math.min(Math.floor((strength / 7) * 100), 100);
+    };
     useEffect(() => {
         setPasswordStrength(checkPasswordStrength(formData.password));
     }, [formData.password]);
@@ -78,8 +77,8 @@ const Register = () => {
             return;
         }
 
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-            setError('请输入有效的邮箱地址');
+        if (formData.password !== formData.confirmPassword) {
+            setError('两次输入的密码不一致');
             return;
         }
 
@@ -88,22 +87,19 @@ const Register = () => {
             return;
         }
 
-        if (formData.password !== formData.confirmPassword) {
-            setError('两次输入的密码不一致');
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+            setError('请输入有效的邮箱地址');
             return;
         }
 
         try {
-            // 在发起请求前设置 loading
-            setLoading(true);
             const response = await userApi.register(formData);
-
-            // 只有在请求成功 (HTTP 2xx) 且业务代码也是成功时才执行
+            setLoading(true);
             if (response.code === 200) {
                 setSuccess('注册成功！');
                 setTimeout(() => {
                     navigate('/login');
-                }, 3000);
+                }, 1000);
             } else {
                 // 如果 HTTP 是 2xx 但业务 code 不是 200 (虽然你的后端设计里这种情况不明确)
                 setError(response.message || '注册失败，请检查提交信息');
@@ -344,7 +340,6 @@ const Register = () => {
                                 '& .MuiInputBase-input': { padding: '12px 14px' }
                             }}
                         />
-
                         <Button
                             fullWidth
                             type="submit"

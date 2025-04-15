@@ -10,8 +10,9 @@ import {
     InputAdornment,
     AppBar,
     Grid,
-    // CircularProgress,
-    Alert
+    Alert,
+    Collapse,
+    LinearProgress
 } from '@mui/material';
 import {
     Visibility,
@@ -31,15 +32,15 @@ interface UserProfile {
 const Settings = () => {
     const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    // const [loading, setLoading] = useState({
-    //     profile: true,
-    //     updating: false,
-    //     changingPassword: false
-    // });
-    const [profile, setProfile] = useState<UserProfile | null>(null);
-    const [error, setError] = useState<string | null>(null);
     //@ts-ignore
-    const [success, setSuccess] = useState<string | null>(null);
+    const [loading, setLoading] = useState({
+        profile: true,
+        updating: false,
+        changingPassword: false
+    });
+    const [profile, setProfile] = useState<UserProfile | null>(null);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
 
     // 用户信息状态
     const [userInfo, setUserInfo] = useState({
@@ -48,13 +49,16 @@ const Settings = () => {
         email:'',
     });
 
-    // 密码修改状态
+    // 密码修改状态 - 添加 currentPassword
     const [passwordInfo, setPasswordInfo] = useState({
+        currentPassword: '', // <--- 新增当前密码字段
         newPassword: '',
         confirmPassword: ''
     });
 
+    // 密码可见性状态 - 添加 current
     const [showPassword, setShowPassword] = useState({
+        current: false, // <--- 新增当前密码可见性
         new: false,
         confirm: false
     });
@@ -71,24 +75,49 @@ const Settings = () => {
     useEffect(() => {
         const fetchProfile = async () => {
             try {
-                // setLoading(prev => ({ ...prev, profile: true }));
-                const data = await userApi.getProfile();
-                setProfile(data.data);
-                setUserInfo({
-                    nickname: data.nickname,
-                    avatar_url: data.avatar_url || '',
-                    email: data.email,
-                });
-            } catch (err) {
-                setError('获取用户信息失败');
-                console.error(err);
+                setLoading(prev => ({ ...prev, profile: true }));
+                const response = await userApi.getProfile();
+                if (response.code === 200) {
+                    const data = response.data || response; // 适应可能的 API 响应结构
+
+                    setProfile(data); // 假设 profile 状态期望 UserProfile 或 null
+                    setUserInfo({
+                    nickname: data.nickname ?? '',
+                    avatar_url: data.avatar_url ?? '', // 保持一致性，也使用 ?? ''
+                    email: data.email ?? '',
+                    });
+                }
+            } catch (err: any) { // 捕获网络错误等
+                 // 在 catch 中处理 API 调用本身的失败 (比如网络错误，或你的 userApi 配置了抛出非200错误)
+                 let message = '获取用户信息失败';
+                 if (err.response && err.response.data && err.response.data.message) {
+                     message = err.response.data.message; // 尝试获取后端错误信息
+                 } else if (err.message) {
+                     message = err.message;
+                 }
+                 setError(message);
+                 console.error("获取用户信息失败:", err);
             } finally {
-                // setLoading(prev => ({ ...prev, profile: false }));
+                setLoading(prev => ({ ...prev, profile: false }));
             }
         };
 
         fetchProfile();
     }, []);
+
+     // 新增: useEffect 用于自动清除成功消息
+    useEffect(() => {
+        if (success) {
+            const timer = setTimeout(() => {
+                setSuccess(''); // 3秒后清空成功消息
+            }, 3000); // 3000毫秒 = 3秒
+
+            // 清理函数：如果 success 状态在计时器结束前再次改变，
+            // 或者组件卸载，则清除旧的计时器
+            return () => clearTimeout(timer);
+        }
+    }, [success]); // 依赖项是 success，当 success 变化时执行
+
 
     // 处理头像选择
     // const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -125,65 +154,72 @@ const Settings = () => {
     // 提交用户信息更新
     const handleUserInfoSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError(null);
-        setSuccess(null);
+        setError('');
+        setSuccess('');
 
         try {
-            // setLoading(prev => ({ ...prev, updating: true }));
-
-            // 准备更新数据
+            setLoading(prev => ({ ...prev, updating: true }));
             const updateData: { nickname?: string; avatar_url?: string } = {};
 
-            if (userInfo.nickname !== profile?.nickname) {
+            // 确保比较的是处理过的 userInfo 值和 profile 里的原始值
+            if (userInfo.nickname !== (profile?.nickname ?? '')) {
                 updateData.nickname = userInfo.nickname;
             }
+            // 注意：头像更新逻辑需要另外实现（上传文件，获取URL等）
+            // if (avatarFile) { ... }
 
-            // 如果有新头像文件，这里应该先上传头像获取URL
-            // 假设上传头像后会返回avatar_url
-            if (avatarFile) {
-                const formData = new FormData();
-                formData.append('avatar', avatarFile);
-                // 这里应该有上传头像的逻辑
-                // updateData.avatar_url = await uploadAvatar(avatarFile);
-                // 暂时模拟
-                updateData.avatar_url = "https://example.com/new-avatar.jpg";
-            }
-
-            // 如果有需要更新的字段才发送请求
             if (Object.keys(updateData).length > 0) {
                 const response = await userApi.updateProfile(updateData);
 
                 if (response.code === 200) {
                     setSuccess('个人信息更新成功');
-                    // 关键优化点：重新获取最新数据
-                    const freshData = await userApi.getProfile();
-                    setProfile(freshData);
-                    setUserInfo({
-                        nickname: freshData.nickname,
-                        avatar_url: freshData.avatar_url || '',
-                        email: freshData.email // 保持email同步
-                    });
+                    // 重新获取最新数据并确保转换 null/undefined
+                    const freshProfileResponse = await userApi.getProfile();
+                    if (freshProfileResponse.code === 200) {
+                         const freshData = freshProfileResponse.data || freshProfileResponse;
+                         setProfile(freshData); // 更新 profile state
+                         setUserInfo({
+                            nickname: freshData.nickname ?? '',
+                            avatar_url: freshData.avatar_url ?? '',
+                            email: freshData.email ?? '',
+                        });
+                    } else {
+                         // 处理重新获取数据时的错误
+                         setError(freshProfileResponse.message || '更新后获取信息失败');
+                    }
+
                 } else {
-                    setError(response.message || '更新失败');
+                    setError(response.message || '更新个人信息失败');
                 }
+            } else {
+                 setSuccess('没有需要更新的信息'); // 或者不提示
             }
-        } catch (err) {
-            console.error(err);
+        } catch (err: any) {
+             console.error("更新用户信息失败:", err);
+             let message = '更新个人信息失败';
+             if (err.response && err.response.data && err.response.data.message) {
+                 message = err.response.data.message;
+             } else if (err.message) {
+                 message = err.message;
+             }
+             setError(message);
         } finally {
-            // setLoading(prev => ({ ...prev, updating: false }));
+            setLoading(prev => ({ ...prev, updating: false }));
         }
     };
 
     // 提交密码修改
     const handlePasswordSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError(null);
-        setSuccess(null);
+        setError('');
+        setSuccess('');
 
-        if(!passwordInfo.newPassword || !passwordInfo.confirmPassword) {
-            setError('请填写所有必填字段');
+        // 更新验证：检查所有三个密码字段
+        if (!passwordInfo.currentPassword || !passwordInfo.newPassword || !passwordInfo.confirmPassword) {
+            setError('请填写当前密码、新密码和确认密码'); // 更新错误信息
             return;
         }
+
         // 验证密码
         if (passwordInfo.newPassword !== passwordInfo.confirmPassword) {
             setError('新密码与确认密码不匹配');
@@ -191,25 +227,35 @@ const Settings = () => {
         }
 
         try {
-            // setLoading(prev => ({ ...prev, changingPassword: true }));
+            setLoading(prev => ({ ...prev, changingPassword: true }));
 
+            // 更新 API 调用：传递 password 和 new_password
             const response = await userApi.changePassword({
-                password: passwordInfo.newPassword
+                password: passwordInfo.currentPassword,    // 当前密码
+                new_password: passwordInfo.newPassword // 新密码 (字段名与后端要求一致)
             });
 
             if (response.code === 200) {
                 setSuccess('密码修改成功');
+                // 清空密码字段
+                setPasswordInfo({
+                    currentPassword: '',
+                    newPassword: '',
+                    confirmPassword: ''
+                });
+                setPasswordStrength(0); // 重置密码强度指示
             }
-            // 清空密码字段
-            setPasswordInfo({
-                newPassword: '',
-                confirmPassword: ''
-            });
-        } catch (err) {
-            setError('修改密码失败');
-            console.error(err);
+        } catch (err: any) {
+             console.error("修改密码失败:", err);
+             let message = '修改密码失败';
+             if (err.response && err.response.data && err.response.data.message) {
+                 message = err.response.data.message;
+             } else if (err.message) {
+                 message = err.message;
+             }
+             setError(message);
         } finally {
-            // setLoading(prev => ({ ...prev, changingPassword: false }));
+            setLoading(prev => ({ ...prev, updating: false }));
         }
     };
 
@@ -217,48 +263,34 @@ const Settings = () => {
         setShowPassword(prev => ({ ...prev, [field]: !prev[field] }));
     };
 
-    // 加载个人信息动画 调试时可注释
-    // if (loading && !profile) {
-    //     return (
-    //         <Box sx={{
-    //             display: 'flex',
-    //             justifyContent: 'center',
-    //             alignItems: 'center',
-    //             width: '100vw',
-    //             height: '100vh',
-    //             position: 'fixed',
-    //             top: 0,
-    //             left: 0,
-    //             zIndex: 9999,  // 确保在最上层
-    //             backgroundColor: 'rgba(0, 0, 0, 0.1)'  // 可选背景遮罩
-    //         }}>
-    //             <CircularProgress size={60} thickness={4} />
-    //         </Box>
-    //     );
-    // }
-
     // 在组件顶部添加密码强度计算函数
     const calculatePasswordStrength = (password: string) => {
+        if (!password) return 0;
+
         let strength = 0;
 
-        // 长度检查
+        // Length check
         if (password.length >= 8) strength += 1;
         if (password.length >= 12) strength += 1;
 
-        // 包含数字
-        if (/\d/.test(password)) strength += 1;
+        // Character variety checks
+        if (/[A-Z]/.test(password)) strength += 1; // Uppercase
+        if (/[a-z]/.test(password)) strength += 1; // Lowercase
+        if (/[0-9]/.test(password)) strength += 1; // Numbers
+        if (/[^A-Za-z0-9]/.test(password)) strength += 1; // Special chars
 
-        // 包含特殊字符
-        if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) strength += 1;
-
-        // 包含大小写字母
-        if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength += 1;
-
-        return Math.min(strength, 5); // 最大强度为5
+        // Normalize to 0-100 scale
+        return Math.min(Math.floor((strength / 7) * 100), 100);
     };
 
     // 添加状态跟踪密码强度
     const [passwordStrength, setPasswordStrength] = useState(0);
+
+    const getStrengthColor = (strength: number) => {
+        if (strength < 30) return 'error';
+        if (strength < 70) return 'warning';
+        return 'success';
+    };
 
     return (
 
@@ -323,6 +355,19 @@ const Settings = () => {
                     p: { xs: 2, md: 4 }
                 }}>
 
+                    {/* ===== 新增/修改：显示成功或错误消息 ===== */}
+                    <Collapse in={!!success}> {/* 使用 Collapse 实现平滑过渡 */}
+                        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>
+                            {success}
+                        </Alert>
+                    </Collapse>
+                    <Collapse in={!!error}>
+                        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+                            {error}
+                        </Alert>
+                    </Collapse>
+
+
                     <Grid container spacing={4}>
                         {/* 第一栏 - 个人信息 */}
                         <Grid item xs={12} md={6}>
@@ -346,7 +391,7 @@ const Settings = () => {
                                             bgcolor: 'primary.main'
                                         }}
                                     >
-                                        {userInfo?.nickname.charAt(0)}
+                                        {userInfo?.nickname}
                                     </Avatar>
                                     <Button variant="outlined" component="label">
                                         更改头像
@@ -403,6 +448,31 @@ const Settings = () => {
 
                                 <form onSubmit={handlePasswordSubmit}>
 
+                                    {/* --- 新增：当前密码输入框 --- */}
+                                <TextField
+                                    fullWidth
+                                    label="当前密码"
+                                    name="currentPassword" // 对应 state 的 key
+                                    type={showPassword.current ? 'text' : 'password'}
+                                    value={passwordInfo.currentPassword}
+                                    onChange={handlePasswordChange}
+                                    margin="normal"
+                                    sx={{ mb: 2 }}
+                                    InputProps={{
+                                        endAdornment: (
+                                            <InputAdornment position="end">
+                                                <IconButton
+                                                    onClick={() => handlePasswordVisibility('current')}
+                                                    edge="end"
+                                                >
+                                                    {showPassword.current ? <VisibilityOff /> : <Visibility />}
+                                                </IconButton>
+                                            </InputAdornment>
+                                        )
+                                    }}
+                                />
+
+
                                     <TextField
                                         fullWidth
                                         label="新密码"
@@ -426,31 +496,27 @@ const Settings = () => {
                                         }}
                                     />
                                     {/* 新增这个密码强度指示器 ↓ */}
-                                    <Box sx={{ mb: 2, mt: -1 }}>
-                                        <Box sx={{
-                                            display: 'flex',
-                                            height: 4,
-                                            bgcolor: '#eee',
-                                            borderRadius: 2,
-                                            overflow: 'hidden'
-                                        }}>
-                                            {[1,2,3,4,5].map((i) => (
-                                                <Box
-                                                    key={i}
-                                                    sx={{
-                                                        flex: 1,
-                                                        bgcolor: i <= passwordStrength ?
-                                                            (passwordStrength <= 2 ? 'error.main' :
-                                                                passwordStrength <= 4 ? 'warning.main' : 'success.main') : '#eee',
-                                                        mr: i < 5 ? 0.5 : 0
-                                                    }}
-                                                />
-                                            ))}
+                                    {passwordInfo.newPassword && (
+                                        <Box sx={{ mt: 1, mb: 2 }}>
+                                            <LinearProgress
+                                                variant="determinate"
+                                                value={passwordStrength}
+                                                color={getStrengthColor(passwordStrength)}
+                                                sx={{
+                                                    height: 6,
+                                                    borderRadius: 3,
+                                                    mb: 1
+                                                }}
+                                            />
+                                            <Typography variant="caption" color="text.secondary">
+                                                密码强度: {passwordStrength < 30 ? '弱' :
+                                                passwordStrength < 70 ? '中等' : '强'}
+                                            </Typography>
+                                            <Typography variant="caption" display="block" color="text.secondary">
+                                                建议使用6位以上字符，包含大小写字母、数字和特殊符号
+                                            </Typography>
                                         </Box>
-                                        <Typography variant="caption" color="text.secondary">
-                                            {passwordStrength <= 2 ? '弱' : passwordStrength <= 4 ? '中等' : '强'}
-                                        </Typography>
-                                    </Box>
+                                    )}
 
                                     <TextField
                                         fullWidth
@@ -484,12 +550,6 @@ const Settings = () => {
                                             更改密码
                                         </Button>
                                     </Box>
-
-                                    {error && (
-                                        <Alert severity="error" sx={{ mt: 2 }}>
-                                            {error}
-                                        </Alert>
-                                    )}
                                 </form>
                             </Paper>
                         </Grid>
