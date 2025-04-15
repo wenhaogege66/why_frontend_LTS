@@ -78,8 +78,8 @@ const Register = () => {
             return;
         }
 
-        if (formData.password !== formData.confirmPassword) {
-            setError('两次输入的密码不一致');
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+            setError('请输入有效的邮箱地址');
             return;
         }
 
@@ -88,33 +88,51 @@ const Register = () => {
             return;
         }
 
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-            setError('请输入有效的邮箱地址');
-            return;
-        }
-
-        if (passwordStrength < 50) {
-            setError('Password is too weak. Please use a stronger password.');
+        if (formData.password !== formData.confirmPassword) {
+            setError('两次输入的密码不一致');
             return;
         }
 
         try {
-            const response = await userApi.register(formData);
+            // 在发起请求前设置 loading
             setLoading(true);
+            const response = await userApi.register(formData);
+
+            // 只有在请求成功 (HTTP 2xx) 且业务代码也是成功时才执行
             if (response.code === 200) {
                 setSuccess('注册成功！');
                 setTimeout(() => {
                     navigate('/login');
-                }, 1000);
+                }, 3000);
             } else {
-                setError(response.message || '注册失败');
+                // 如果 HTTP 是 2xx 但业务 code 不是 200 (虽然你的后端设计里这种情况不明确)
+                setError(response.message || '注册失败，请检查提交信息');
             }
-        } catch (err) {
-            setError('注册失败，请稍后重试');
-        }finally {
-            setLoading(false);
+        } catch (err: any) { // 使用 any 或更具体的错误类型
+            console.error("注册 API 调用失败:", err); // 在开发中打印完整错误以供调试
+            if (err.response && err.response.data && err.response.data.message) {
+                // 尝试从 axios 错误对象中提取后端返回的 message
+                let errorMessage = err.response.data.message;
+                // (可选) 尝试附加更详细的错误信息
+                if (err.response.data.errors) {
+
+                    const errorDetails = Object.values(err.response.data.errors)
+                        .map((fieldErrors: any) => fieldErrors[0]) // 取每个字段的第一个错误
+                        .join('; ');
+                    errorMessage += `: ${errorDetails}`;
+                }
+                setError(errorMessage);
+            } else if (err.message) {
+                // 如果没有 response 对象，可能是网络错误或其他客户端错误
+                setError(`注册请求失败: ${err.message}`);
+            } else {
+                // 最后的回退方案
+                setError('注册失败，请稍后重试');
+            }
+        } finally {
+            setLoading(false); // 确保 loading 总是被关闭
         }
-    };
+    }
 
     const ColorfulWaveBackground = () => (
         <div style={{
@@ -275,6 +293,30 @@ const Register = () => {
                                 '& .MuiInputBase-input': { padding: '12px 14px' }
                             }}
                         />
+
+                         {/*密码强度条*/}
+                        {formData.password && (
+                            <Box sx={{ mt: 1, mb: 2 }}>
+                                <LinearProgress
+                                    variant="determinate"
+                                    value={passwordStrength}
+                                    color={getStrengthColor(passwordStrength)}
+                                    sx={{
+                                        height: 6,
+                                        borderRadius: 3,
+                                        mb: 1
+                                    }}
+                                />
+                                <Typography variant="caption" color="text.secondary">
+                                    密码强度: {passwordStrength < 30 ? '弱' :
+                                    passwordStrength < 70 ? '中等' : '强'}
+                                </Typography>
+                                <Typography variant="caption" display="block" color="text.secondary">
+                                    建议使用6位以上字符，包含大小写字母、数字和特殊符号
+                                </Typography>
+                            </Box>
+                        )}
+
                         <TextField
                             fullWidth
                             label="确认密码"
@@ -302,29 +344,6 @@ const Register = () => {
                                 '& .MuiInputBase-input': { padding: '12px 14px' }
                             }}
                         />
-
-                        {/* Password strength indicator */}
-                        {formData.password && (
-                            <Box sx={{ mt: 1, mb: 2 }}>
-                                <LinearProgress
-                                    variant="determinate"
-                                    value={passwordStrength}
-                                    color={getStrengthColor(passwordStrength)}
-                                    sx={{
-                                        height: 6,
-                                        borderRadius: 3,
-                                        mb: 1
-                                    }}
-                                />
-                                <Typography variant="caption" color="text.secondary">
-                                    密码强度: {passwordStrength < 30 ? '弱' :
-                                    passwordStrength < 70 ? '中等' : '强'}
-                                </Typography>
-                                <Typography variant="caption" display="block" color="text.secondary">
-                                    建议使用8位以上字符，包含大小写字母、数字和特殊符号
-                                </Typography>
-                            </Box>
-                        )}
 
                         <Button
                             fullWidth
