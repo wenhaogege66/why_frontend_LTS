@@ -50,8 +50,6 @@ const handleError = (error: unknown) => {
 // 定义统一搜索的参数和返回类型
 export interface UnifiedSearchParams {
     query: string;
-    page_wanted?: number; // 统一搜索可以有默认分页参数
-    page_size?: number;
 }
 
 // 定义统一搜索的返回结果结构（包含所有可能的分类）
@@ -68,8 +66,6 @@ export interface UnifiedSearchResults {
 
 interface DescribeSearchParams {
     describe: string; // 歌曲描述
-    page_wanted: number; // 需要的页码
-    page_size: number; // 每页数量
 }
 
 // 2. 定义返回数据中的子 Interface
@@ -97,18 +93,10 @@ export interface Song {
     publishTime: number; // 发布时间戳
 }
 
-interface Metadata {
-    current_page: number; // 当前页码
-    page_size: number; // 每页数量
-    total_pages: number; // 总页数
-}
-
-
 export interface SearchResponse {
     code: number; // 状态码，如 200
     message: string; // 状态信息，如 "success"
     data: Song[]; // 歌曲列表
-    metadata: Metadata; // 分页元数据
 }
 
 /**
@@ -123,9 +111,7 @@ export const describeSearch = async (
         // 假设你的 api 实例使用 axios，查询参数通过 config 对象的 params 字段传递
         const response = await api.get<SearchResponse>('/api/search/bydesc/', {
             params: {
-                describe: params.describe,
-                page_wanted: params.page_wanted,
-                page_size: params.page_size,
+                describe: params.describe
             }
         });
         // --- 新增检查 ---
@@ -152,8 +138,6 @@ export const describeSearch = async (
 
 interface spiritSearchParams {
     spirit: string; // 歌曲描述
-    page_wanted: number; // 需要的页码
-    page_size: number; // 每页数量
 }
 
 /**
@@ -168,9 +152,7 @@ export const spiritSearch = async (
         // 假设你的 api 实例使用 axios，查询参数通过 config 对象的 params 字段传递
         const response = await api.get<SearchResponse>('/api/search/byspirit/', {
             params: {
-                describe: params.spirit,
-                page_wanted: params.page_wanted,
-                page_size: params.page_size,
+                describe: params.spirit
             }
         });
         // --- 新增检查 ---
@@ -237,12 +219,12 @@ export const titleSearch = async (
 export const unifiedSearch = async (
         params: UnifiedSearchParams
     ): Promise<UnifiedSearchResults> => {
-        const { query, page_wanted = 1, page_size = 20 } = params;
+        const query = params;
 
         // Map function names (implementation) to result keys (semantic meaning)
         const apiCalls = {
-            byDescription: () => searchApi.describeSearch({ describe: query, page_wanted, page_size }),
-            byMood: () => searchApi.spiritSearch({ spirit: query, page_wanted, page_size }),
+            byDescription: () => searchApi.describeSearch({ describe: query}),
+            byMood: () => searchApi.spiritSearch({ spirit: query }),
             byTitle: () => searchApi.titleSearch({ title: query }),
             // Add other calls
             // byArtist: () => searchApi.artistSearch({ artist: query, page_wanted, page_size }),
