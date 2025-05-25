@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://10.214.241.127:8000';
-
+// const API_BASE_URL = 'http://10.214.241.127:8000';
+const API_BASE_URL = 'http://localhost:8000';
 // 使用相同的axios实例
 const api = axios.create({
     baseURL: API_BASE_URL,

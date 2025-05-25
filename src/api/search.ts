@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://10.214.241.127:8000';
-
+// const API_BASE_URL = 'http://10.214.241.127:8000';
+const API_BASE_URL = 'http://localhost:8000';
 // 使用相同的axios实例
 const api = axios.create({
     baseURL: API_BASE_URL,
@@ -59,7 +59,7 @@ export interface UnifiedSearchResults {
     // byTitle?: SearchByTitleResponse; // 普通搜索-歌名结果
     // byArtist?: SearchByArtistResponse; // 普通搜索-艺术家结果
     // byAlbum?: SearchByAlbumResponse; // 普通搜索-专辑结果
-    byDescription?: SearchResponse; // AI搜索-描述结果 (就是你之前定义的 DescribeSearchResponse)
+    byDescription?: SearchResponse; // AI搜索-描述结果
     byMood?: SearchResponse; // AI搜索-心情结果
     byTitle?: SearchResponse; // AI搜索-主题结果
     // 可以根据需要添加其他分类

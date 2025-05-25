@@ -16,7 +16,7 @@ import {
     Menu,
     MenuItem,
     ListItemIcon,
-    ListItemText
+    ListItemText, Button
 } from '@mui/material';
 import { Search, Menu as MenuIcon, Notifications, AccountCircle, PlayArrow, Login, PersonAdd, Logout } from '@mui/icons-material';
 import React, { useState, useEffect } from 'react';
@@ -187,8 +187,20 @@ const Home = () => {
                 // encodeURIComponent 用于编码特殊字符，防止 URL 问题
                 navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
                 // 可选：清空搜索框
-                // setSearchQuery('');
+                setSearchQuery('');
             }
+        }
+    };
+
+    const handleSearchSubmit = () => {
+        // 这里放你的搜索逻辑
+        console.log('执行搜索:', searchQuery);
+        if (searchQuery.trim()) { // 如果输入框不为空白字符
+            // 导航到 /search 路由，并将查询内容作为 URL 参数 'q' 传递
+            // encodeURIComponent 用于编码特殊字符，防止 URL 问题
+            navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+            // 可选：清空搜索框
+            setSearchQuery('');
         }
     };
 
@@ -247,34 +259,51 @@ const Home = () => {
                             WHY Music
                         </Typography>
 
-                        {/* 搜索框 TextField 添加了 value, onChange, onKeyDown */}
-                        <TextField
-                            variant="outlined"
-                            placeholder="搜索歌曲或歌手..."
-                            size="small"
-                            value={searchQuery} // 绑定 value 到 state
-                            onChange={handleSearchInputChange} // 绑定 onChange
-                            onKeyDown={handleSearchKeyPress} // 绑定 onKeyDown
-                            InputProps={{
-                                startAdornment: (
-                                    <Search sx={{ color: 'action.active', mr: 1 }} />
-                                ),
-                            }}
-                            sx={{
-                                width: 400,
-                                '& .MuiOutlinedInput-root': {
-                                    borderRadius: 4,
-                                    '&:hover': {
-                                        '& .MuiOutlinedInput-notchedOutline': {
-                                            borderColor: 'primary.main',
+                        {/* 搜索框 TextField 和搜索按钮 */}
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <TextField
+                                variant="outlined"
+                                placeholder="搜索歌曲或歌手..."
+                                size="small"
+                                value={searchQuery}
+                                onChange={handleSearchInputChange}
+                                onKeyDown={handleSearchKeyPress}
+                                InputProps={{
+                                    startAdornment: (
+                                        <Search sx={{ color: 'action.active', mr: 1 }} />
+                                    ),
+                                }}
+                                sx={{
+                                    width: 400,
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '4px 0 0 4px', // 左侧圆角
+                                        '&:hover': {
+                                            '& .MuiOutlinedInput-notchedOutline': {
+                                                borderColor: 'primary.main',
+                                            },
                                         },
                                     },
-                                },
-                                '& .MuiOutlinedInput-input': {
-                                    py: 1,
-                                }
-                            }}
-                        />
+                                    '& .MuiOutlinedInput-input': {
+                                        py: 1,
+                                    }
+                                }}
+                            />
+                            <Button
+                                variant="contained"
+                                onClick={handleSearchSubmit} // 使用和Enter键相同的处理函数
+                                sx={{
+                                    minWidth: 'auto',
+                                    height: '40px', // 与TextField高度匹配
+                                    borderRadius: '0 4px 4px 0', // 右侧圆角
+                                    boxShadow: 'none',
+                                    '&:hover': {
+                                        boxShadow: 'none',
+                                    }
+                                }}
+                            >
+                                <Search />
+                            </Button>
+                        </Box>
 
                         <Box sx={{ display: 'flex', ml: 2 }}>
                             <IconButton
