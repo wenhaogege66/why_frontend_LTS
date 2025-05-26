@@ -31,16 +31,42 @@ const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
     const parsed: LyricLine[] = [];
 
     lines.forEach((line) => {
-      // 匹配时间标签格式 [mm:ss.xx]
-      const timeMatch = line.match(/\[(\d{2}):(\d{2})\.(\d{2})\]/);
+      // 匹配多种时间标签格式
+      // [mm:ss.xx] [mm:ss.xxx] [mm:ss] [m:ss.xx] [m:ss]
+      const timeMatches = [
+        line.match(/\[(\d{1,2}):(\d{2})\.(\d{2,3})\]/), // [mm:ss.xx] 或 [m:ss.xxx]
+        line.match(/\[(\d{1,2}):(\d{2})\]/), // [mm:ss] 或 [m:ss]
+      ];
+
+      let timeMatch = null;
+      let time = 0;
+
+      // 尝试匹配不同格式
+      for (const match of timeMatches) {
+        if (match) {
+          timeMatch = match;
+          break;
+        }
+      }
+
       if (timeMatch) {
         const minutes = parseInt(timeMatch[1]);
         const seconds = parseInt(timeMatch[2]);
-        const milliseconds = parseInt(timeMatch[3]);
-        const time = minutes * 60 + seconds + milliseconds / 100;
+        const milliseconds = timeMatch[3] ? parseInt(timeMatch[3]) : 0;
 
-        const text = line.replace(/\[\d{2}:\d{2}\.\d{2}\]/, "").trim();
-        if (text) {
+        // 根据毫秒位数调整计算
+        const msMultiplier = timeMatch[3]
+          ? timeMatch[3].length === 3
+            ? 1
+            : 10
+          : 0;
+        time = minutes * 60 + seconds + (milliseconds * msMultiplier) / 1000;
+
+        // 移除所有时间标签，支持多个时间标签的情况
+        const text = line
+          .replace(/\[\d{1,2}:\d{2}(?:\.\d{2,3})?\]/g, "")
+          .trim();
+        if (text && text !== "") {
           parsed.push({ time, text });
         }
       }
@@ -105,6 +131,23 @@ const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
                     : "text.secondary",
                 fontWeight: index === currentLineIndex ? 600 : 400,
                 transition: "all 0.3s ease",
+                ...(index === currentLineIndex && {
+                  animation: "lyricHighlight 1.5s ease-in-out infinite",
+                  "@keyframes lyricHighlight": {
+                    "0%": {
+                      transform: "scale(1)",
+                      textShadow: "0 0 0px rgba(25, 118, 210, 0.5)",
+                    },
+                    "50%": {
+                      transform: "scale(1.05)",
+                      textShadow: "0 0 8px rgba(25, 118, 210, 0.8)",
+                    },
+                    "100%": {
+                      transform: "scale(1)",
+                      textShadow: "0 0 0px rgba(25, 118, 210, 0.5)",
+                    },
+                  },
+                }),
               }}
             >
               {line.text}
@@ -124,6 +167,21 @@ const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
             py: 1,
             bgcolor: "rgba(0, 0, 0, 0.05)",
             borderRadius: 1,
+            animation: "lyricPulse 2s ease-in-out infinite",
+            "@keyframes lyricPulse": {
+              "0%": {
+                transform: "scale(1)",
+                opacity: 0.8,
+              },
+              "50%": {
+                transform: "scale(1.02)",
+                opacity: 1,
+              },
+              "100%": {
+                transform: "scale(1)",
+                opacity: 0.8,
+              },
+            },
           }}
         >
           {parsedLyrics[currentLineIndex].text}

@@ -47,6 +47,9 @@ export interface Favorite {
   album_name: string;
   pic_url: string;
   created_at: string;
+  // 添加歌手和专辑ID（可选，用于向后兼容）
+  artist_id?: number;
+  album_id?: number;
 }
 
 export interface FavoriteCreateData {
@@ -55,6 +58,9 @@ export interface FavoriteCreateData {
   artist_name: string;
   album_name: string;
   pic_url: string;
+  // 添加歌手和专辑ID（可选）
+  artist_id?: number;
+  album_id?: number;
 }
 
 export interface FavoriteResponse {

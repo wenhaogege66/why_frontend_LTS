@@ -33,6 +33,7 @@ import {
 import Sidebar from "../components/Sidebar";
 import { userApi } from "../api/user";
 import { favoriteApi, Favorite } from "../api/favorite";
+import { usePlayer } from "../contexts/PlayerContext";
 
 function FavoritesPage() {
   const navigate = useNavigate();
@@ -46,6 +47,9 @@ function FavoritesPage() {
   // 用户信息
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [user, setUser] = useState<any>(null);
+
+  // 使用全局播放器
+  const { playerState, playSong } = usePlayer();
 
   const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -75,6 +79,22 @@ function FavoritesPage() {
 
     fetchUserProfile();
   }, []);
+
+  // 播放收藏的歌曲
+  const playFavoriteSong = async (favorite: Favorite) => {
+    // 将收藏数据转换为Song格式
+    const song = {
+      id: favorite.song_id,
+      name: favorite.song_name,
+      ar: [{ name: favorite.artist_name }],
+      al: {
+        name: favorite.album_name,
+        picUrl: favorite.pic_url,
+      },
+    };
+
+    await playSong(song);
+  };
 
   // 获取收藏列表
   useEffect(() => {
@@ -131,6 +151,7 @@ function FavoritesPage() {
         minHeight: "100vh",
         width: "100vw",
         overflow: "hidden",
+        pb: 7, // 为底部播放器留出空间
       }}
     >
       {/* 侧边栏 */}
@@ -258,12 +279,21 @@ function FavoritesPage() {
                             display: "flex",
                             borderRadius: 2,
                             cursor: "pointer",
-                            transition: "transform 0.2s",
+                            transition: "all 0.2s ease",
                             "&:hover": {
                               transform: "scale(1.02)",
                               boxShadow: 3,
                             },
+                            border:
+                              playerState.currentSongId === favorite.song_id
+                                ? "2px solid"
+                                : "1px solid transparent",
+                            borderColor:
+                              playerState.currentSongId === favorite.song_id
+                                ? "primary.main"
+                                : "transparent",
                           }}
+                          onClick={() => playFavoriteSong(favorite)}
                         >
                           <CardMedia
                             component="img"
@@ -282,6 +312,7 @@ function FavoritesPage() {
                               flexDirection: "column",
                               flexGrow: 1,
                               position: "relative",
+                              minWidth: 0,
                             }}
                           >
                             <CardContent
@@ -289,13 +320,14 @@ function FavoritesPage() {
                                 flex: "1 0 auto",
                                 py: 1,
                                 "&:last-child": { pb: 1 },
-                                pr: 6,
-                                minWidth: 0, // 允许内容收缩
+                                pr: 8,
+                                minWidth: 0,
                               }}
                             >
                               <Typography
                                 component="div"
                                 variant="body1"
+                                noWrap
                                 sx={{
                                   overflow: "hidden",
                                   textOverflow: "ellipsis",
@@ -311,6 +343,19 @@ function FavoritesPage() {
                                   overflow: "hidden",
                                   textOverflow: "ellipsis",
                                   whiteSpace: "nowrap",
+                                  cursor: "pointer",
+                                  "&:hover": {
+                                    color: "primary.main",
+                                    textDecoration: "underline",
+                                  },
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  // 优先使用歌手ID，如果没有则使用歌手名称
+                                  const artistIdentifier = favorite.artist_id
+                                    ? favorite.artist_id
+                                    : encodeURIComponent(favorite.artist_name);
+                                  navigate(`/artist/${artistIdentifier}`);
                                 }}
                               >
                                 {favorite.artist_name}
@@ -322,27 +367,81 @@ function FavoritesPage() {
                                   overflow: "hidden",
                                   textOverflow: "ellipsis",
                                   whiteSpace: "nowrap",
+                                  cursor: "pointer",
+                                  "&:hover": {
+                                    color: "primary.main",
+                                    textDecoration: "underline",
+                                  },
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  // 优先使用专辑ID，如果没有则使用专辑名称
+                                  const albumIdentifier = favorite.album_id
+                                    ? favorite.album_id
+                                    : encodeURIComponent(favorite.album_name);
+                                  navigate(`/album/${albumIdentifier}`);
                                 }}
                               >
                                 {favorite.album_name}
                               </Typography>
                             </CardContent>
 
-                            {/* 删除收藏按钮 */}
-                            <IconButton
+                            {/* 按钮容器 */}
+                            <Box
                               sx={{
                                 position: "absolute",
                                 right: 8,
                                 bottom: 8,
-                                color: "error.main",
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                removeFavorite(favorite);
+                                display: "flex",
+                                gap: 0.5,
+                                zIndex: 1,
                               }}
                             >
-                              <Delete />
-                            </IconButton>
+                              {/* 播放按钮 */}
+                              <IconButton
+                                size="small"
+                                sx={{
+                                  color:
+                                    playerState.currentSongId ===
+                                      favorite.song_id && playerState.isPlaying
+                                      ? "primary.main"
+                                      : "text.secondary",
+                                  backgroundColor: "rgba(255, 255, 255, 0.8)",
+                                  "&:hover": {
+                                    backgroundColor: "rgba(255, 255, 255, 0.9)",
+                                  },
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  playFavoriteSong(favorite);
+                                }}
+                              >
+                                {playerState.currentSongId ===
+                                  favorite.song_id && playerState.isPlaying ? (
+                                  <Pause fontSize="small" />
+                                ) : (
+                                  <PlayArrow fontSize="small" />
+                                )}
+                              </IconButton>
+
+                              {/* 删除收藏按钮 */}
+                              <IconButton
+                                size="small"
+                                sx={{
+                                  color: "error.main",
+                                  backgroundColor: "rgba(255, 255, 255, 0.8)",
+                                  "&:hover": {
+                                    backgroundColor: "rgba(255, 255, 255, 0.9)",
+                                  },
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeFavorite(favorite);
+                                }}
+                              >
+                                <Delete fontSize="small" />
+                              </IconButton>
+                            </Box>
                           </Box>
                         </Card>
                       </Grid>

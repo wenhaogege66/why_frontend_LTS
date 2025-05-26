@@ -63,16 +63,9 @@ import Sidebar from "../components/Sidebar";
 import { userApi } from "../api/user";
 import { favoriteApi, FavoriteCreateData } from "../api/favorite";
 import LyricsDisplay from "../components/LyricsDisplay";
+import { usePlayer } from "../contexts/PlayerContext";
 
-// 定义音乐播放状态接口
-interface PlayerState {
-  isPlaying: boolean;
-  currentSongId: number | null;
-  currentTime: number;
-  duration: number;
-  volume: number;
-  isMuted: boolean;
-}
+// 移除本地播放状态接口，使用全局播放器
 
 function SearchResultsPage() {
   const [searchParams] = useSearchParams();
@@ -80,7 +73,9 @@ function SearchResultsPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const query = searchParams.get("q");
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
-  const [page, setPage] = useState(1);
+  const [songPage, setSongPage] = useState(1);
+  const [artistPage, setArtistPage] = useState(1);
+  const [albumPage, setAlbumPage] = useState(1);
   const itemsPerPage = 12;
 
   // AI搜索切换状态
@@ -93,6 +88,17 @@ function SearchResultsPage() {
     useState<NormalSearchResults | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // 使用全局播放器
+  const {
+    playerState,
+    currentSongInfo,
+    favoriteStates,
+    playSong,
+    toggleFavorite,
+    checkFavoriteStatus,
+    currentLyrics,
+  } = usePlayer();
 
   // 处理搜索输入框变化的事件
   const handleSearchInputChange = (
@@ -164,25 +170,6 @@ function SearchResultsPage() {
     fetchUserProfile();
   }, []);
 
-  // 音乐播放状态
-  const [playerState, setPlayerState] = useState<PlayerState>({
-    isPlaying: false,
-    currentSongId: null,
-    currentTime: 0,
-    duration: 0,
-    volume: 50,
-    isMuted: false,
-  });
-  const [currentSongUrl, setCurrentSongUrl] = useState<string | null>(null);
-  const [currentLyrics, setCurrentLyrics] = useState<string | null>(null);
-  const [currentSongInfo, setCurrentSongInfo] = useState<Song | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  // 收藏状态管理
-  const [favoriteStates, setFavoriteStates] = useState<Record<number, boolean>>(
-    {}
-  );
-
   // 使用 useEffect 在 query 变化时触发搜索
   useEffect(() => {
     const performSearch = async () => {
@@ -198,7 +185,9 @@ function SearchResultsPage() {
       setAiSearchResults(null);
       setNormalSearchResults(null);
       setError(null);
-      setPage(1); // 重置分页到第一页
+      setSongPage(1); // 重置分页到第一页
+      setArtistPage(1);
+      setAlbumPage(1);
 
       try {
         if (isAISearch) {
@@ -221,47 +210,38 @@ function SearchResultsPage() {
     performSearch();
   }, [query, isAISearch]);
 
-  // 检查搜索结果中歌曲的收藏状态
+  // 检查当前页歌曲的收藏状态
   useEffect(() => {
     const songIds: number[] = [];
 
     if (isAISearch && aiSearchResults) {
+      // AI搜索结果不分页，检查所有歌曲
       aiSearchResults.byDescription?.data?.forEach((song) =>
         songIds.push(song.id)
       );
       aiSearchResults.byMood?.data?.forEach((song) => songIds.push(song.id));
       aiSearchResults.byTitle?.data?.forEach((song) => songIds.push(song.id));
     } else if (!isAISearch && normalSearchResults?.songs) {
-      normalSearchResults.songs.forEach((song) => songIds.push(song.id));
+      // 普通搜索结果只检查当前页的歌曲
+      const startIndex = (songPage - 1) * itemsPerPage;
+      const paginatedSongs = normalSearchResults.songs.slice(
+        startIndex,
+        startIndex + itemsPerPage
+      );
+      paginatedSongs.forEach((song) => songIds.push(song.id));
     }
 
     if (songIds.length > 0 && user) {
       checkFavoriteStatus(songIds);
     }
-  }, [aiSearchResults, normalSearchResults, user, isAISearch]);
-
-  // 初始化音频元素
-  useEffect(() => {
-    if (!audioRef.current) {
-      audioRef.current = new Audio();
-      audioRef.current.addEventListener("timeupdate", handleTimeUpdate);
-      audioRef.current.addEventListener("loadedmetadata", handleLoadedMetadata);
-      audioRef.current.addEventListener("ended", handleSongEnd);
-    }
-
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.removeEventListener("timeupdate", handleTimeUpdate);
-        audioRef.current.removeEventListener(
-          "loadedmetadata",
-          handleLoadedMetadata
-        );
-        audioRef.current.removeEventListener("ended", handleSongEnd);
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-    };
-  }, []);
+  }, [
+    aiSearchResults,
+    normalSearchResults,
+    user,
+    isAISearch,
+    songPage,
+    checkFavoriteStatus,
+  ]);
 
   // 获取歌曲信息
   const getSongInfo = (songId: number): Song | null => {
@@ -281,186 +261,11 @@ function SearchResultsPage() {
     return null;
   };
 
-  // 播放音乐
-  const playSong = async (songId: number) => {
-    try {
-      // 如果已经在播放同一首歌，只需切换播放/暂停状态
-      if (playerState.currentSongId === songId) {
-        if (playerState.isPlaying) {
-          audioRef.current?.pause();
-          setPlayerState((prev) => ({ ...prev, isPlaying: false }));
-        } else {
-          await audioRef.current?.play();
-          setPlayerState((prev) => ({ ...prev, isPlaying: true }));
-        }
-        return;
-      }
-
-      // 获取歌曲信息
-      const songInfo = getSongInfo(songId);
-      if (songInfo) {
-        setCurrentSongInfo(songInfo);
-      }
-
-      // 显示加载状态
-      setPlayerState((prev) => ({ ...prev, isPlaying: false }));
-
-      // 获取歌曲播放URL和歌词
-      const response = await searchApi.getSongPlayInfo(songId);
-
-      if (response.code === 200 && response.data.url) {
-        if (audioRef.current) {
-          audioRef.current.src = response.data.url;
-          audioRef.current.currentTime = 0;
-          audioRef.current.volume = playerState.volume / 100;
-
-          // 等待音频加载完成后播放
-          audioRef.current.onloadeddata = async () => {
-            try {
-              await audioRef.current?.play();
-              setPlayerState((prev) => ({
-                ...prev,
-                isPlaying: true,
-                currentSongId: songId,
-                currentTime: 0,
-                duration: audioRef.current?.duration || 0,
-              }));
-            } catch (playError) {
-              console.error("播放失败:", playError);
-              setError("播放失败，请稍后重试");
-            }
-          };
-
-          setCurrentSongUrl(response.data.url);
-          setCurrentLyrics(response.data.lyric || null);
-        }
-      } else {
-        throw new Error("无法获取歌曲播放地址");
-      }
-    } catch (err) {
-      console.error("播放歌曲失败:", err);
-      setError("播放歌曲失败，请稍后重试");
-      setPlayerState((prev) => ({ ...prev, isPlaying: false }));
-    }
-  };
-
-  // 处理时间更新
-  const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      setPlayerState((prev) => ({
-        ...prev,
-        currentTime: audioRef.current?.currentTime || 0,
-        duration: audioRef.current?.duration || 0,
-      }));
-    }
-  };
-
-  // 处理元数据加载
-  const handleLoadedMetadata = () => {
-    if (audioRef.current) {
-      setPlayerState((prev) => ({
-        ...prev,
-        duration: audioRef.current?.duration || 0,
-      }));
-    }
-  };
-
-  // 处理歌曲结束
-  const handleSongEnd = () => {
-    setPlayerState((prev) => ({
-      ...prev,
-      isPlaying: false,
-      currentTime: 0,
-    }));
-  };
-
-  // 处理进度条变化
-  // @ts-ignore
-  const handleSeek = (event: Event, newValue: number | number[]) => {
-    const seekTime = Array.isArray(newValue) ? newValue[0] : newValue;
-    if (audioRef.current) {
-      audioRef.current.currentTime = seekTime;
-      setPlayerState((prev) => ({
-        ...prev,
-        currentTime: seekTime,
-      }));
-    }
-  };
-
-  // 处理音量变化
-  // @ts-ignore
-  const handleVolumeChange = (event: Event, newValue: number | number[]) => {
-    const volume = Array.isArray(newValue) ? newValue[0] : newValue;
-    if (audioRef.current) {
-      audioRef.current.volume = volume / 100;
-      setPlayerState((prev) => ({
-        ...prev,
-        volume: volume,
-        isMuted: volume === 0,
-      }));
-    }
-  };
-
-  // 切换静音
-  const toggleMute = () => {
-    if (audioRef.current) {
-      const isMuted = !playerState.isMuted;
-      audioRef.current.muted = isMuted;
-      setPlayerState((prev) => ({
-        ...prev,
-        isMuted: isMuted,
-      }));
-    }
-  };
-
-  // 格式化时间为 MM:SS
-  const formatTime = (time: number) => {
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
-  };
-
-  // 切换收藏状态
-  const toggleFavorite = async (song: Song) => {
-    try {
-      const favoriteData: FavoriteCreateData = {
-        song_id: song.id,
-        song_name: song.name,
-        artist_name: song.ar.map((artist) => artist.name).join(", "),
-        album_name: song.al.name,
-        pic_url: song.al.picUrl,
-      };
-
-      const response = await favoriteApi.toggleFavorite(favoriteData);
-
-      // 更新本地收藏状态
-      setFavoriteStates((prev) => ({
-        ...prev,
-        [song.id]: response.is_favorite,
-      }));
-
-      // 显示提示消息（可以使用 snackbar 或 toast）
-      console.log(response.message);
-    } catch (error) {
-      console.error("收藏操作失败:", error);
-      setError("收藏操作失败，请稍后重试");
-    }
-  };
-
-  // 检查歌曲收藏状态
-  const checkFavoriteStatus = async (songIds: number[]) => {
-    try {
-      const promises = songIds.map((id) => favoriteApi.checkFavorite(id));
-      const results = await Promise.all(promises);
-
-      const newFavoriteStates: Record<number, boolean> = {};
-      songIds.forEach((id, index) => {
-        newFavoriteStates[id] = results[index].is_favorite;
-      });
-
-      setFavoriteStates((prev) => ({ ...prev, ...newFavoriteStates }));
-    } catch (error) {
-      console.error("检查收藏状态失败:", error);
+  // 播放歌曲的包装函数
+  const handlePlaySong = (songId: number) => {
+    const songInfo = getSongInfo(songId);
+    if (songInfo) {
+      playSong(songInfo);
     }
   };
 
@@ -471,7 +276,7 @@ function SearchResultsPage() {
     }
 
     // 分页逻辑
-    const startIndex = (page - 1) * itemsPerPage;
+    const startIndex = (songPage - 1) * itemsPerPage;
     const paginatedSongs = songs.slice(startIndex, startIndex + itemsPerPage);
 
     return (
@@ -511,7 +316,7 @@ function SearchResultsPage() {
                       ? "primary.main"
                       : "transparent",
                 }}
-                onClick={() => playSong(song.id)}
+                onClick={() => handlePlaySong(song.id)}
               >
                 <CardMedia
                   component="img"
@@ -619,7 +424,7 @@ function SearchResultsPage() {
                       }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        playSong(song.id);
+                        handlePlaySong(song.id);
                       }}
                     >
                       {playerState.currentSongId === song.id &&
@@ -639,8 +444,8 @@ function SearchResultsPage() {
           <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
             <Pagination
               count={Math.ceil(songs.length / itemsPerPage)}
-              page={page}
-              onChange={(_, value) => setPage(value)}
+              page={songPage}
+              onChange={(_, value) => setSongPage(value)}
               color="primary"
             />
           </Box>
@@ -656,7 +461,7 @@ function SearchResultsPage() {
     }
 
     // 分页逻辑
-    const startIndex = (page - 1) * itemsPerPage;
+    const startIndex = (artistPage - 1) * itemsPerPage;
     const paginatedArtists = artists.slice(
       startIndex,
       startIndex + itemsPerPage
@@ -690,6 +495,7 @@ function SearchResultsPage() {
                     boxShadow: 3,
                   },
                 }}
+                onClick={() => navigate(`/artist/${artist.id}`)}
               >
                 <CardMedia
                   component="img"
@@ -721,8 +527,8 @@ function SearchResultsPage() {
           <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
             <Pagination
               count={Math.ceil(artists.length / itemsPerPage)}
-              page={page}
-              onChange={(_, value) => setPage(value)}
+              page={artistPage}
+              onChange={(_, value) => setArtistPage(value)}
               color="primary"
             />
           </Box>
@@ -738,7 +544,7 @@ function SearchResultsPage() {
     }
 
     // 分页逻辑
-    const startIndex = (page - 1) * itemsPerPage;
+    const startIndex = (albumPage - 1) * itemsPerPage;
     const paginatedAlbums = albums.slice(startIndex, startIndex + itemsPerPage);
 
     return (
@@ -769,6 +575,7 @@ function SearchResultsPage() {
                     boxShadow: 3,
                   },
                 }}
+                onClick={() => navigate(`/album/${album.id}`)}
               >
                 <CardMedia
                   component="img"
@@ -803,8 +610,8 @@ function SearchResultsPage() {
           <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
             <Pagination
               count={Math.ceil(albums.length / itemsPerPage)}
-              page={page}
-              onChange={(_, value) => setPage(value)}
+              page={albumPage}
+              onChange={(_, value) => setAlbumPage(value)}
               color="primary"
             />
           </Box>
@@ -1066,151 +873,7 @@ function SearchResultsPage() {
           )}
         </Container>
 
-        {/* 底部播放器 */}
-        {playerState.currentSongId && currentSongInfo && (
-          <Paper
-            elevation={8}
-            sx={{
-              position: "fixed",
-              bottom: 0,
-              left: 0,
-              right: 0,
-              p: 2,
-              bgcolor: "background.paper",
-              borderTop: "1px solid #eee",
-              zIndex: 1000,
-            }}
-          >
-            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-              {/* 歌曲信息 */}
-              <Box
-                sx={{ display: "flex", alignItems: "center", minWidth: 200 }}
-              >
-                <CardMedia
-                  component="img"
-                  sx={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: 1,
-                    mr: 2,
-                    objectFit: "cover",
-                  }}
-                  image={currentSongInfo.al.picUrl}
-                  alt={currentSongInfo.name}
-                />
-                <Box sx={{ minWidth: 0, flexGrow: 1 }}>
-                  <Typography
-                    variant="subtitle1"
-                    sx={{
-                      fontWeight: 500,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {currentSongInfo.name}
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {currentSongInfo.ar
-                      .map((artist) => artist.name)
-                      .join(" / ")}
-                  </Typography>
-                </Box>
-              </Box>
-
-              {/* 播放控制 */}
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <IconButton>
-                  <SkipPrevious />
-                </IconButton>
-                <IconButton
-                  onClick={() =>
-                    playerState.currentSongId &&
-                    playSong(playerState.currentSongId)
-                  }
-                  sx={{
-                    bgcolor: "primary.main",
-                    color: "white",
-                    "&:hover": {
-                      bgcolor: "primary.dark",
-                    },
-                  }}
-                >
-                  {playerState.isPlaying ? <Pause /> : <PlayArrow />}
-                </IconButton>
-                <IconButton>
-                  <SkipNext />
-                </IconButton>
-              </Box>
-
-              {/* 进度条 */}
-              <Box sx={{ flexGrow: 1, mx: 2 }}>
-                <Slider
-                  value={playerState.currentTime}
-                  max={playerState.duration || 100}
-                  onChange={handleSeek}
-                  sx={{
-                    color: "primary.main",
-                    height: 4,
-                    "& .MuiSlider-thumb": {
-                      width: 12,
-                      height: 12,
-                    },
-                  }}
-                />
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    fontSize: "0.75rem",
-                    color: "text.secondary",
-                    mt: 0.5,
-                  }}
-                >
-                  <span>{formatTime(playerState.currentTime)}</span>
-                  <span>{formatTime(playerState.duration)}</span>
-                </Box>
-              </Box>
-
-              {/* 音量控制 */}
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  minWidth: 120,
-                }}
-              >
-                <IconButton onClick={toggleMute} size="small">
-                  <VolumeUp />
-                </IconButton>
-                <Slider
-                  value={playerState.volume}
-                  onChange={handleVolumeChange}
-                  sx={{
-                    width: 80,
-                    color: "primary.main",
-                    height: 4,
-                    "& .MuiSlider-thumb": {
-                      width: 12,
-                      height: 12,
-                    },
-                  }}
-                />
-              </Box>
-            </Box>
-          </Paper>
-        )}
-
-        {/* 歌词显示 */}
+        {/* 歌词显示 - 右下角小窗口 */}
         {playerState.currentSongId && currentLyrics && (
           <Box
             sx={{

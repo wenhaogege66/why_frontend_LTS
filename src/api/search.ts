@@ -495,6 +495,107 @@ export const getSongPlayInfo = async (
   }
 };
 
+// 歌手详情接口
+export interface ArtistDetail {
+  artist: {
+    briefDesc: string;
+    musicSize: number;
+    albumSize: number;
+    picUrl: string;
+    alias: string[];
+    name: string;
+    id: number;
+    publishTime: number;
+    mvSize: number;
+  };
+  songs: Song[];
+}
+
+export interface ArtistDetailResponse {
+  code: number;
+  message: string;
+  data: ArtistDetail[];
+}
+
+/**
+ * 获取歌手详情和热门歌曲
+ */
+export const getArtistDetail = async (
+  artistId: number
+): Promise<ArtistDetailResponse> => {
+  try {
+    const response = await api.get<ArtistDetailResponse>(
+      `/api/search/byartistsong/?id=${artistId}`
+    );
+
+    if (response.data.code !== 200) {
+      const errorMessage =
+        response.data.message ||
+        `Backend returned non-200 code: ${response.data.code}`;
+      console.error("Backend Logical Error:", response.data.code, errorMessage);
+      throw new Error(errorMessage);
+    }
+
+    return response.data;
+  } catch (error) {
+    handleError(error);
+    throw error;
+  }
+};
+
+// 专辑详情接口
+export interface AlbumDetail {
+  album: {
+    artist: {
+      musicSize: number;
+      albumSize: number;
+      picUrl: string;
+      alias: string[];
+      name: string;
+      id: number;
+    };
+    company: string;
+    picUrl: string;
+    alias: string[];
+    description: string;
+    name: string;
+    id: number;
+  };
+  songs: Song[];
+}
+
+export interface AlbumDetailResponse {
+  code: number;
+  message: string;
+  data: AlbumDetail[];
+}
+
+/**
+ * 获取专辑详情和歌曲列表
+ */
+export const getAlbumDetail = async (
+  albumId: number
+): Promise<AlbumDetailResponse> => {
+  try {
+    const response = await api.get<AlbumDetailResponse>(
+      `/api/search/byalbumsong/?id=${albumId}`
+    );
+
+    if (response.data.code !== 200) {
+      const errorMessage =
+        response.data.message ||
+        `Backend returned non-200 code: ${response.data.code}`;
+      console.error("Backend Logical Error:", response.data.code, errorMessage);
+      throw new Error(errorMessage);
+    }
+
+    return response.data;
+  } catch (error) {
+    handleError(error);
+    throw error;
+  }
+};
+
 export const searchApi = {
   // 普通搜索
   searchByTitle,
@@ -508,4 +609,7 @@ export const searchApi = {
   unifiedSearch,
   // 歌曲播放
   getSongPlayInfo,
+  // 详情页面
+  getArtistDetail,
+  getAlbumDetail,
 };

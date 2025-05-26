@@ -8,20 +8,29 @@ import SongDetail from "./pages/SongDetail";
 import FavoritesPage from "./pages/FavoritesPage";
 import Settings from "./pages/Settings";
 import SearchResultsPage from "./pages/SearchResultsPage";
+import ArtistDetailPage from "./pages/ArtistDetailPage";
+import AlbumDetailPage from "./pages/AlbumDetailPage";
+import { PlayerProvider } from "./contexts/PlayerContext";
+import GlobalPlayer from "./components/GlobalPlayer";
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/" element={<Home />} />
-        <Route path="/song/:id" element={<SongDetail />} />
-        <Route path="/favorites" element={<FavoritesPage />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="/search" element={<SearchResultsPage />} />
-      </Routes>
-    </BrowserRouter>
+    <PlayerProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/" element={<Home />} />
+          <Route path="/song/:id" element={<SongDetail />} />
+          <Route path="/favorites" element={<FavoritesPage />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/search" element={<SearchResultsPage />} />
+          <Route path="/artist/:artistId" element={<ArtistDetailPage />} />
+          <Route path="/album/:albumId" element={<AlbumDetailPage />} />
+        </Routes>
+        <GlobalPlayer />
+      </BrowserRouter>
+    </PlayerProvider>
   );
 }
 
