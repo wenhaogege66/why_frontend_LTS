@@ -457,6 +457,44 @@ export const unifiedSearch = async (
   }
 };
 
+// 歌曲播放信息接口
+export interface SongPlayInfo {
+  url: string;
+  lyric: string;
+}
+
+export interface SongPlayResponse {
+  code: number;
+  message: string;
+  data: SongPlayInfo;
+}
+
+/**
+ * 获取歌曲播放信息（URL和歌词）
+ */
+export const getSongPlayInfo = async (
+  songId: number
+): Promise<SongPlayResponse> => {
+  try {
+    const response = await api.get<SongPlayResponse>(
+      `/api/search/bysong/?id=${songId}`
+    );
+
+    if (response.data.code !== 200) {
+      const errorMessage =
+        response.data.message ||
+        `Backend returned non-200 code: ${response.data.code}`;
+      console.error("Backend Logical Error:", response.data.code, errorMessage);
+      throw new Error(errorMessage);
+    }
+
+    return response.data;
+  } catch (error) {
+    handleError(error);
+    throw error;
+  }
+};
+
 export const searchApi = {
   // 普通搜索
   searchByTitle,
@@ -468,4 +506,6 @@ export const searchApi = {
   spiritSearch,
   titleSearch,
   unifiedSearch,
+  // 歌曲播放
+  getSongPlayInfo,
 };

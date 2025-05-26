@@ -57,10 +57,12 @@ import {
   NormalSearchResults,
   ArtistResult,
   AlbumResult,
+  searchApi,
 } from "../api/search";
 import Sidebar from "../components/Sidebar";
 import { userApi } from "../api/user";
 import { favoriteApi, FavoriteCreateData } from "../api/favorite";
+import LyricsDisplay from "../components/LyricsDisplay";
 
 // 定义音乐播放状态接口
 interface PlayerState {
@@ -173,6 +175,7 @@ function SearchResultsPage() {
   });
   const [currentSongUrl, setCurrentSongUrl] = useState<string | null>(null);
   const [currentLyrics, setCurrentLyrics] = useState<string | null>(null);
+  const [currentSongInfo, setCurrentSongInfo] = useState<Song | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // 收藏状态管理
@@ -260,6 +263,24 @@ function SearchResultsPage() {
     };
   }, []);
 
+  // 获取歌曲信息
+  const getSongInfo = (songId: number): Song | null => {
+    // 从搜索结果中查找歌曲信息
+    if (isAISearch && aiSearchResults) {
+      const allSongs = [
+        ...(aiSearchResults.byDescription?.data || []),
+        ...(aiSearchResults.byMood?.data || []),
+        ...(aiSearchResults.byTitle?.data || []),
+      ];
+      return allSongs.find((song) => song.id === songId) || null;
+    } else if (!isAISearch && normalSearchResults?.songs) {
+      return (
+        normalSearchResults.songs.find((song) => song.id === songId) || null
+      );
+    }
+    return null;
+  };
+
   // 播放音乐
   const playSong = async (songId: number) => {
     try {
@@ -275,27 +296,43 @@ function SearchResultsPage() {
         return;
       }
 
-      // 获取歌曲播放URL和歌词
-      // TODO 需要修改成对应后端的api！！！（还没实现）
-      const response = await fetch(`/api/song/url?id=${songId}`);
-      const data = await response.json();
+      // 获取歌曲信息
+      const songInfo = getSongInfo(songId);
+      if (songInfo) {
+        setCurrentSongInfo(songInfo);
+      }
 
-      if (data.code === 200 && data.data.url) {
+      // 显示加载状态
+      setPlayerState((prev) => ({ ...prev, isPlaying: false }));
+
+      // 获取歌曲播放URL和歌词
+      const response = await searchApi.getSongPlayInfo(songId);
+
+      if (response.code === 200 && response.data.url) {
         if (audioRef.current) {
-          audioRef.current.src = data.data.url;
+          audioRef.current.src = response.data.url;
           audioRef.current.currentTime = 0;
           audioRef.current.volume = playerState.volume / 100;
-          await audioRef.current.play();
 
-          setCurrentSongUrl(data.data.url);
-          setCurrentLyrics(data.data.lyric || null);
-          setPlayerState({
-            ...playerState,
-            isPlaying: true,
-            currentSongId: songId,
-            currentTime: 0,
-            duration: audioRef.current.duration || 0,
-          });
+          // 等待音频加载完成后播放
+          audioRef.current.onloadeddata = async () => {
+            try {
+              await audioRef.current?.play();
+              setPlayerState((prev) => ({
+                ...prev,
+                isPlaying: true,
+                currentSongId: songId,
+                currentTime: 0,
+                duration: audioRef.current?.duration || 0,
+              }));
+            } catch (playError) {
+              console.error("播放失败:", playError);
+              setError("播放失败，请稍后重试");
+            }
+          };
+
+          setCurrentSongUrl(response.data.url);
+          setCurrentLyrics(response.data.lyric || null);
         }
       } else {
         throw new Error("无法获取歌曲播放地址");
@@ -303,6 +340,7 @@ function SearchResultsPage() {
     } catch (err) {
       console.error("播放歌曲失败:", err);
       setError("播放歌曲失败，请稍后重试");
+      setPlayerState((prev) => ({ ...prev, isPlaying: false }));
     }
   };
 
@@ -459,11 +497,19 @@ function SearchResultsPage() {
                   display: "flex",
                   borderRadius: 2,
                   cursor: "pointer",
-                  transition: "transform 0.2s",
+                  transition: "all 0.2s ease",
                   "&:hover": {
                     transform: "scale(1.02)",
                     boxShadow: 3,
                   },
+                  border:
+                    playerState.currentSongId === song.id
+                      ? "2px solid"
+                      : "1px solid transparent",
+                  borderColor:
+                    playerState.currentSongId === song.id
+                      ? "primary.main"
+                      : "transparent",
                 }}
                 onClick={() => playSong(song.id)}
               >
@@ -913,7 +959,7 @@ function SearchResultsPage() {
               justifyContent: "space-between",
             }}
           >
-            <Typography variant="h4" sx={{ fontWeight: 600 }}>
+            <Typography variant="h4" sx={{ fontWeight: 600, color: "#000" }}>
               搜索结果: "{query}"
             </Typography>
             <FormControlLabel
@@ -1021,7 +1067,7 @@ function SearchResultsPage() {
         </Container>
 
         {/* 底部播放器 */}
-        {playerState.currentSongId && (
+        {playerState.currentSongId && currentSongInfo && (
           <Paper
             elevation={8}
             sx={{
@@ -1032,9 +1078,54 @@ function SearchResultsPage() {
               p: 2,
               bgcolor: "background.paper",
               borderTop: "1px solid #eee",
+              zIndex: 1000,
             }}
           >
             <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              {/* 歌曲信息 */}
+              <Box
+                sx={{ display: "flex", alignItems: "center", minWidth: 200 }}
+              >
+                <CardMedia
+                  component="img"
+                  sx={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 1,
+                    mr: 2,
+                    objectFit: "cover",
+                  }}
+                  image={currentSongInfo.al.picUrl}
+                  alt={currentSongInfo.name}
+                />
+                <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+                  <Typography
+                    variant="subtitle1"
+                    sx={{
+                      fontWeight: 500,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {currentSongInfo.name}
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {currentSongInfo.ar
+                      .map((artist) => artist.name)
+                      .join(" / ")}
+                  </Typography>
+                </Box>
+              </Box>
+
               {/* 播放控制 */}
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <IconButton>
@@ -1045,6 +1136,13 @@ function SearchResultsPage() {
                     playerState.currentSongId &&
                     playSong(playerState.currentSongId)
                   }
+                  sx={{
+                    bgcolor: "primary.main",
+                    color: "white",
+                    "&:hover": {
+                      bgcolor: "primary.dark",
+                    },
+                  }}
                 >
                   {playerState.isPlaying ? <Pause /> : <PlayArrow />}
                 </IconButton>
@@ -1057,9 +1155,16 @@ function SearchResultsPage() {
               <Box sx={{ flexGrow: 1, mx: 2 }}>
                 <Slider
                   value={playerState.currentTime}
-                  max={playerState.duration}
+                  max={playerState.duration || 100}
                   onChange={handleSeek}
-                  sx={{ color: "primary.main" }}
+                  sx={{
+                    color: "primary.main",
+                    height: 4,
+                    "& .MuiSlider-thumb": {
+                      width: 12,
+                      height: 12,
+                    },
+                  }}
                 />
                 <Box
                   sx={{
@@ -1067,6 +1172,7 @@ function SearchResultsPage() {
                     justifyContent: "space-between",
                     fontSize: "0.75rem",
                     color: "text.secondary",
+                    mt: 0.5,
                   }}
                 >
                   <span>{formatTime(playerState.currentTime)}</span>
@@ -1075,18 +1181,56 @@ function SearchResultsPage() {
               </Box>
 
               {/* 音量控制 */}
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <IconButton onClick={toggleMute}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  minWidth: 120,
+                }}
+              >
+                <IconButton onClick={toggleMute} size="small">
                   <VolumeUp />
                 </IconButton>
                 <Slider
                   value={playerState.volume}
                   onChange={handleVolumeChange}
-                  sx={{ width: 100, color: "primary.main" }}
+                  sx={{
+                    width: 80,
+                    color: "primary.main",
+                    height: 4,
+                    "& .MuiSlider-thumb": {
+                      width: 12,
+                      height: 12,
+                    },
+                  }}
                 />
               </Box>
             </Box>
           </Paper>
+        )}
+
+        {/* 歌词显示 */}
+        {playerState.currentSongId && currentLyrics && (
+          <Box
+            sx={{
+              position: "fixed",
+              bottom: 100,
+              right: 20,
+              width: 300,
+              maxHeight: 400,
+              bgcolor: "background.paper",
+              borderRadius: 2,
+              boxShadow: 3,
+              p: 2,
+              zIndex: 999,
+            }}
+          >
+            <LyricsDisplay
+              lyrics={currentLyrics}
+              currentTime={playerState.currentTime}
+            />
+          </Box>
         )}
       </Box>
     </Box>
