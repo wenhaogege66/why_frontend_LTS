@@ -293,6 +293,7 @@ const GlobalPlayer: React.FC = () => {
         onVolumeChange={setVolume}
         onToggleMute={toggleMute}
         onToggleFavorite={() => toggleFavorite(currentSongInfo)}
+        onSeek={seekTo}
       />
     </>
   );

@@ -45,6 +45,7 @@ interface FullScreenLyricsProps {
   onVolumeChange: (volume: number) => void;
   onToggleMute: () => void;
   onToggleFavorite: () => void;
+  onSeek?: (time: number) => void;
 }
 
 function FullScreenLyrics({
@@ -62,6 +63,7 @@ function FullScreenLyrics({
   onVolumeChange,
   onToggleMute,
   onToggleFavorite,
+  onSeek,
 }: FullScreenLyricsProps) {
   const [parsedLyrics, setParsedLyrics] = useState<LyricLine[]>([]);
   const [currentLyricIndex, setCurrentLyricIndex] = useState(-1);
@@ -157,6 +159,14 @@ function FullScreenLyrics({
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
+  };
+
+  // 处理进度条拖动
+  const handleSeek = (event: Event, newValue: number | number[]) => {
+    const seekTime = Array.isArray(newValue) ? newValue[0] : newValue;
+    if (onSeek) {
+      onSeek(seekTime);
+    }
   };
 
   if (!song) return null;
@@ -450,7 +460,7 @@ function FullScreenLyrics({
                 </IconButton>
               </Box>
 
-              {/* 进度显示 */}
+              {/* 进度控制 */}
               <Box sx={{ flex: 1, mx: 2 }}>
                 <Box
                   sx={{
@@ -464,26 +474,36 @@ function FullScreenLyrics({
                   <span>{formatTime(currentTime)}</span>
                   <span>{formatTime(duration)}</span>
                 </Box>
-                <Box
+                <Slider
+                  value={currentTime}
+                  max={duration || 100}
+                  onChange={handleSeek}
                   sx={{
+                    color: "primary.main",
                     height: 4,
-                    bgcolor: "rgba(255, 255, 255, 0.2)",
-                    borderRadius: 2,
-                    position: "relative",
-                  }}
-                >
-                  <Box
-                    sx={{
-                      height: "100%",
-                      bgcolor: "primary.main",
+                    "& .MuiSlider-thumb": {
+                      width: 16,
+                      height: 16,
+                      backgroundColor: "white",
+                      border: "2px solid currentColor",
+                      "&:hover": {
+                        boxShadow: "0 0 0 8px rgba(255, 255, 255, 0.16)",
+                      },
+                      "&:focus, &:hover, &.Mui-active": {
+                        boxShadow: "0 0 0 8px rgba(255, 255, 255, 0.16)",
+                      },
+                    },
+                    "& .MuiSlider-track": {
+                      height: 4,
                       borderRadius: 2,
-                      width: `${
-                        duration > 0 ? (currentTime / duration) * 100 : 0
-                      }%`,
-                      transition: "width 0.1s ease",
-                    }}
-                  />
-                </Box>
+                    },
+                    "& .MuiSlider-rail": {
+                      height: 4,
+                      borderRadius: 2,
+                      backgroundColor: "rgba(255, 255, 255, 0.2)",
+                    },
+                  }}
+                />
               </Box>
 
               {/* 音量控制 */}

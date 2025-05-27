@@ -105,7 +105,7 @@ const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
           onClick={() => setExpanded(!expanded)}
           sx={{ ml: 1 }}
         >
-          {expanded ? <ExpandLess /> : <ExpandMore />}
+          {expanded ? <ExpandMore /> : <ExpandLess />}
         </IconButton>
       </Box>
 
