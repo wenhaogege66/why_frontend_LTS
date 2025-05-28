@@ -1,50 +1,12 @@
-import axios from "axios";
+import api, { axios } from './axiosConfig';
 
-const API_BASE_URL = 'http://10.214.241.127:8000';
-// const API_BASE_URL = "http://localhost:8000";
-// 使用相同的axios实例
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
-
-// 请求拦截器：添加token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// 响应拦截器：处理错误
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // token过期或无效，清除token并跳转到登录页
-      localStorage.removeItem("token");
-      window.location.href = "/login";
-    }
-    return Promise.reject(error);
-  }
-);
-
+// 错误处理函数
 const handleError = (error: unknown) => {
   if (axios.isAxiosError(error)) {
     console.error("API Error:", error.response?.data || error.message);
     throw new Error(error.response?.data?.message || "Network error");
-  } else {
-    console.error("Unexpected Error:", error);
-    throw new Error("An unexpected error occurred");
   }
+  throw error;
 };
 
 // 定义统一搜索的参数和返回类型

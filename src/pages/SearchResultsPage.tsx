@@ -1,5 +1,5 @@
 // src/pages/SearchResultsPage.tsx
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -13,8 +13,6 @@ import {
   CardMedia,
   IconButton,
   Pagination,
-  Paper,
-  Slider,
   Toolbar,
   TextField,
   Button,
@@ -25,16 +23,11 @@ import {
   AppBar,
   Switch,
   FormControlLabel,
-  Chip,
-  Avatar,
-  Divider,
+  Chip
 } from "@mui/material";
 import {
   PlayArrow,
   Pause,
-  SkipNext,
-  SkipPrevious,
-  VolumeUp,
   Menu as MenuIcon,
   Search,
   Notifications,
@@ -57,11 +50,9 @@ import {
   NormalSearchResults,
   ArtistResult,
   AlbumResult,
-  searchApi,
 } from "../api/search";
 import Sidebar from "../components/Sidebar";
 import { userApi } from "../api/user";
-import { favoriteApi, FavoriteCreateData } from "../api/favorite";
 import LyricsDisplay from "../components/LyricsDisplay";
 import { usePlayer } from "../contexts/PlayerContext";
 

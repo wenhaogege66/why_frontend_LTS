@@ -127,7 +127,7 @@ const Login = () => {
                 elevation={3}
                 sx={{
                     width: '100%',
-                    maxWidth: 400,
+                    maxWidth: 500,
                     p: 4,
                     borderRadius: 4,
                     background: 'rgba(255, 255, 255, 0.9)',
