@@ -294,7 +294,7 @@ export const spiritSearch = async (
     // 假设你的 api 实例使用 axios，查询参数通过 config 对象的 params 字段传递
     const response = await api.get<SearchResponse>("/api/search/byspirit/", {
       params: {
-        describe: params.spirit,
+        spirit: params.spirit,
       },
     });
     // --- 新增检查 ---

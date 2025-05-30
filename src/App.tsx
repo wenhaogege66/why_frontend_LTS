@@ -12,6 +12,7 @@ import ArtistDetailPage from "./pages/ArtistDetailPage";
 import AlbumDetailPage from "./pages/AlbumDetailPage";
 import { PlayerProvider } from "./contexts/PlayerContext";
 import GlobalPlayer from "./components/GlobalPlayer";
+import Mood from "./pages/Mood";
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/song/:id" element={<SongDetail />} />
           <Route path="/favorites" element={<FavoritesPage />} />
+          <Route path="/mood" element={<Mood />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/search" element={<SearchResultsPage />} />
           <Route path="/artist/:artistId" element={<ArtistDetailPage />} />
