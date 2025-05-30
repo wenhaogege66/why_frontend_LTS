@@ -112,8 +112,9 @@ const Home = () => {
         {
             id: 3,
             title: "心情电台",
-            description: "大家都在听什么",
-            imageUrl: "https://picsum.photos/800/400?random=3"
+            description: "听你想听的声音",
+            imageUrl: "https://picsum.photos/800/400?random=3",
+            onClick: () => navigate('/mood')
         }
     ];
 
@@ -422,6 +423,7 @@ const Home = () => {
                                 <Grid item xs={12} md={4} key={playlist.id}>
                                     <Paper
                                         elevation={0}
+                                        onClick={playlist.onClick}
                                         sx={{
                                             position: 'relative',
                                             height: 200,

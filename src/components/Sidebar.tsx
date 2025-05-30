@@ -1,5 +1,5 @@
 import { Drawer, List, ListItem, ListItemIcon, ListItemText, Divider, Box, Typography } from '@mui/material';
-import { Home, MusicNote, Favorite, History, Settings } from '@mui/icons-material';
+import { Home, MusicNote, Favorite, Settings } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
 const Sidebar = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
@@ -8,7 +8,6 @@ const Sidebar = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
         { text: '首页', icon: <Home />, path: '/' },
         { text: '发现音乐', icon: <MusicNote />, path: '/discover' },
         { text: '我的收藏', icon: <Favorite />, path: '/favorites' },
-        { text: '播放历史', icon: <History />, path: '/history' },
         { text: '设置', icon: <Settings />, path: '/settings' },
     ];
 
