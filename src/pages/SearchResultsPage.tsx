@@ -23,7 +23,9 @@ import {
   AppBar,
   Switch,
   FormControlLabel,
-  Chip
+  Chip,
+  Tabs,
+  Tab
 } from "@mui/material";
 import {
   PlayArrow,
@@ -57,8 +59,7 @@ import {
 import Sidebar from "../components/Sidebar";
 import { userApi } from "../api/user";
 import LyricsDisplay from "../components/LyricsDisplay";
-import { usePlayer } from "../contexts/PlayerContext";
-import { Tabs, Tab } from "@mui/material";
+import { usePlayer, PlaylistType } from "../contexts/PlayerContext";
 import { titleSearch } from "../api/search";
 
 // 移除本地播放状态接口，使用全局播放器
@@ -95,6 +96,8 @@ function SearchResultsPage() {
   const [loading, setLoading] = useState(true);
   // 添加独立的主题推荐loading状态
   const [titleLoading, setTitleLoading] = useState(false);
+  // 添加搜索状态，用于防止搜索过程中显示无结果提示
+  const [isSearching, setIsSearching] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -148,15 +151,19 @@ function SearchResultsPage() {
     }
   };
 
+  // 处理"立即搜索"按钮点击 - 使用当前查询词重新搜索
+  const handleImmediateSearch = () => {
+    if (query) {
+      const url = `/search?q=${encodeURIComponent(query)}${isAISearch ? "&ai=1" : ""}`;
+      navigate(url);
+    }
+  };
+
   // 修改 AI 搜索切换处理器
   const handleAISearchToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newIsAISearch = e.target.checked;
     setIsAISearch(newIsAISearch);
-    // 切换时也更新 URL
-    if (searchParams.get("q")) {
-      const url = `/search?q=${encodeURIComponent(searchParams.get("q") || "")}${newIsAISearch ? "&ai=1" : ""}`;
-      navigate(url);
-    }
+    // 移除自动搜索逻辑，只切换模式状态
   };
 
   // Home.tsx 顶部栏
@@ -201,10 +208,13 @@ function SearchResultsPage() {
 
   // 使用 useEffect 在 query 变化时触发搜索
   useEffect(() => {
+    const abortController = new AbortController();
+    
     const performSearch = async () => {
       if (!query) {
         setLoading(false);
         setTitleLoading(false);
+        setIsSearching(false);
         setAiSearchResults(null);
         setNormalSearchResults(null);
         setByTitleResult(null);
@@ -212,7 +222,28 @@ function SearchResultsPage() {
         return;
       }
 
-      // setLoading(true);
+      // 检查是否已被取消
+      if (abortController.signal.aborted) {
+        return;
+      }
+
+      // 从URL参数直接读取AI搜索状态，确保与URL同步
+      const currentAiParam = searchParams.get("ai");
+      const currentIsAISearch = currentAiParam === "1";
+
+      // 立即设置搜索状态，防止显示无结果提示
+      setIsSearching(true);
+
+      // 立即设置loading状态，避免在清空结果和设置loading之间出现无结果提示
+      if (currentIsAISearch) {
+        setLoading(true);
+      } else if (resultTab === "byTitle") {
+        setTitleLoading(true);
+      } else {
+        setLoading(true);
+      }
+
+      // 清空之前的搜索结果
       setAiSearchResults(null);
       setNormalSearchResults(null);
       setByTitleResult(null);
@@ -222,47 +253,66 @@ function SearchResultsPage() {
       setAlbumPage(1);
 
       try {
-        if (isAISearch) {
+        if (currentIsAISearch) {
           // AI搜索
-          setLoading(true);
           const results = await unifiedSearch({ query: query });
-          setAiSearchResults(results);
+          
+          // 检查请求是否被取消
+          if (!abortController.signal.aborted) {
+            setAiSearchResults(results);
+          }
           setLoading(false);
         } else {
           // 普通搜索
-          // const results = await normalSearch({ keyword: query });
-          // setNormalSearchResults(results);
           if (resultTab === "byTitle") {
-            setTitleLoading(true);  // 使用独立的loading状态
             const res = await titleSearch({ title: query });
-            setByTitleResult(res);
+            
+            if (!abortController.signal.aborted) {
+              setByTitleResult(res);
+            }
             setTitleLoading(false);
           } else {
-            setLoading(true);
             if (resultTab === "songs") {
               const res = await searchByTitle({ keyword: query });
-              setNormalSearchResults({ songs: res.data as Song[], artists: [], albums: [] });
+              if (!abortController.signal.aborted) {
+                setNormalSearchResults({ songs: res.data as Song[], artists: [], albums: [] });
+              }
             } else if (resultTab === "artists") {
               const res = await searchByArtist({ keyword: query });
-              setNormalSearchResults({ songs: [], artists: res.data as ArtistResult[], albums: [] });
+              if (!abortController.signal.aborted) {
+                setNormalSearchResults({ songs: [], artists: res.data as ArtistResult[], albums: [] });
+              }
             } else if (resultTab === "albums") {
               const res = await searchByAlbum({ keyword: query });
-              setNormalSearchResults({ albums: res.data as AlbumResult[] });
+              if (!abortController.signal.aborted) {
+                setNormalSearchResults({ albums: res.data as AlbumResult[] });
+              }
             }
             setLoading(false);
           }
         }
       } catch (err) {
-        setError("搜索过程中发生错误");
-        console.error("Search failed:", err);
+        // 如果是请求被取消，不显示错误
+        if (!abortController.signal.aborted) {
+          setError("搜索过程中发生错误");
+          console.error("Search failed:", err);
+        }
       } finally {
-        setLoading(false);
-        setTitleLoading(false);
+        if (!abortController.signal.aborted) {
+          setLoading(false);
+          setTitleLoading(false);
+          setIsSearching(false); // 搜索完成，重置搜索状态
+        }
       }
     };
 
     performSearch();
-  }, [query, isAISearch, resultTab]);
+
+    // 清理函数：取消正在进行的请求
+    return () => {
+      abortController.abort();
+    };
+  }, [query, resultTab, searchParams]); // 添加 searchParams 作为依赖
 
   // 检查当前页歌曲的收藏状态
   useEffect(() => {
@@ -319,7 +369,35 @@ function SearchResultsPage() {
   const handlePlaySong = (songId: number) => {
     const songInfo = getSongInfo(songId);
     if (songInfo) {
-      playSong(songInfo);
+      // 创建播放列表
+      let playlist: { type: PlaylistType; title: string; songs: Song[]; currentIndex: number } | undefined = undefined;
+      let songs: Song[] = [];
+      let playlistTitle = "";
+
+      if (isAISearch && aiSearchResults) {
+        // AI搜索结果播放列表
+        songs = aiSearchResults.byDescription?.data || [];
+        playlistTitle = `AI搜索: ${query}`;
+      } else if (!isAISearch) {
+        if (resultTab === "songs" && normalSearchResults?.songs) {
+          songs = normalSearchResults.songs;
+          playlistTitle = `搜索歌曲: ${query}`;
+        } else if (resultTab === "byTitle" && byTitleResult?.data) {
+          songs = byTitleResult.data;
+          playlistTitle = `主题推荐: ${query}`;
+        }
+      }
+
+      if (songs.length > 0) {
+        playlist = {
+          type: PlaylistType.SEARCH_RESULTS,
+          title: playlistTitle,
+          songs: songs,
+          currentIndex: 0 // 这会在playSong中被正确设置
+        };
+      }
+
+      playSong(songInfo, playlist);
     }
   };
 
@@ -357,6 +435,7 @@ function SearchResultsPage() {
                   borderRadius: 2,
                   cursor: "pointer",
                   transition: "all 0.2s ease",
+                  minHeight: "100px", // 增加最小高度以容纳更多内容
                   "&:hover": {
                     transform: "scale(1.02)",
                     boxShadow: 3,
@@ -375,8 +454,10 @@ function SearchResultsPage() {
                 <CardMedia
                   component="img"
                   sx={{
-                    width: 80,
-                    height: 80,
+                    width: 100,
+                    height: "100%", // 改为100%以填满整个卡片高度
+					minHeight: 100, // 确保最小高度匹配卡片高度
+					maxHeight: 100,
                     borderRadius: "8px 0 0 8px",
                     objectFit: "cover",
                   }}
@@ -399,6 +480,7 @@ function SearchResultsPage() {
                       "&:last-child": { pb: 1 },
                       pr: 8, // 为两个按钮留出空间
                       minWidth: 0, // 允许内容收缩
+                      minHeight: "80px", // 确保内容区域有足够高度
                     }}
                   >
                     <Typography
@@ -413,18 +495,62 @@ function SearchResultsPage() {
                     >
                       {song.name}
                     </Typography>
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        maxWidth: "100%",
-                      }}
-                    >
-                      {song.ar.map((artist) => artist.name).join(" / ")}
-                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          maxWidth: "100%",
+                        }}
+                      >
+                        {song.ar.map((artist, index) => (
+                          <span key={artist.id}>
+                            <Typography
+                              component="span"
+                              variant="body2"
+                              sx={{
+                                color: "primary.main",
+                                cursor: "pointer",
+                                "&:hover": {
+                                  textDecoration: "underline",
+                                },
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/artist/${artist.id}`);
+                              }}
+                            >
+                              {artist.name}
+                            </Typography>
+                            {index < song.ar.length - 1 && (
+                              <span style={{ color: 'rgba(0, 0, 0, 0.6)' }}> / </span>
+                            )}
+                          </span>
+                        ))}
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: "text.secondary",
+                          cursor: "pointer",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          "&:hover": {
+                            textDecoration: "underline",
+                            color: "primary.main",
+                          },
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/album/${song.al.id}`);
+                        }}
+                      >
+                        {song.al.name}
+                      </Typography>
+                    </Box>
                   </CardContent>
 
                   {/* 按钮容器 */}
@@ -432,8 +558,10 @@ function SearchResultsPage() {
                     sx={{
                       position: "absolute",
                       right: 8,
-                      bottom: 8,
+                      top: "50%",
+                      transform: "translateY(-50%)", // 居中对齐
                       display: "flex",
+                      flexDirection: "column", // 垂直排列
                       gap: 0.5,
                       zIndex: 1,
                     }}
@@ -544,6 +672,9 @@ function SearchResultsPage() {
                   borderRadius: 2,
                   cursor: "pointer",
                   transition: "transform 0.2s",
+                  height: 320, // 设置固定高度
+                  display: "flex",
+                  flexDirection: "column",
                   "&:hover": {
                     transform: "scale(1.02)",
                     boxShadow: 3,
@@ -560,15 +691,23 @@ function SearchResultsPage() {
                   image={artist.picUrl}
                   alt={artist.name}
                 />
-                <CardContent>
-                  <Typography variant="h6" noWrap>
+                <CardContent sx={{ flexGrow: 1, display: "flex", flexDirection: "column" }}>
+                  <Typography variant="h6" noWrap sx={{ mb: 1 }}>
                     {artist.name}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                     专辑: {artist.albumSize} | MV: {artist.mvSize}
                   </Typography>
                   {artist.alias.length > 0 && (
-                    <Typography variant="body2" color="text.secondary" noWrap>
+                    <Typography 
+                      variant="body2" 
+                      color="text.secondary" 
+                      sx={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
                       别名: {artist.alias.join(", ")}
                     </Typography>
                   )}
@@ -624,6 +763,9 @@ function SearchResultsPage() {
                   borderRadius: 2,
                   cursor: "pointer",
                   transition: "transform 0.2s",
+                  height: 360, // 设置固定高度（专辑内容较多，稍微高一些）
+                  display: "flex",
+                  flexDirection: "column",
                   "&:hover": {
                     transform: "scale(1.02)",
                     boxShadow: 3,
@@ -640,18 +782,57 @@ function SearchResultsPage() {
                   image={album.picUrl}
                   alt={album.name}
                 />
-                <CardContent>
-                  <Typography variant="h6" noWrap>
+                <CardContent sx={{ flexGrow: 1, display: "flex", flexDirection: "column" }}>
+                  <Typography variant="h6" noWrap sx={{ mb: 1 }}>
                     {album.name}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary" noWrap>
-                    {album.artists.map((artist) => artist.name).join(", ")}
+                  <Typography 
+                    variant="body2" 
+                    sx={{
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      mb: 1,
+                    }}
+                  >
+                    {album.artists.map((artist, index) => (
+                      <span key={artist.id}>
+                        <Typography
+                          component="span"
+                          variant="body2"
+                          sx={{
+                            color: "primary.main",
+                            cursor: "pointer",
+                            "&:hover": {
+                              textDecoration: "underline",
+                            },
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/artist/${artist.id}`);
+                          }}
+                        >
+                          {artist.name}
+                        </Typography>
+                        {index < album.artists.length - 1 && (
+                          <span style={{ color: 'rgba(0, 0, 0, 0.6)' }}>, </span>
+                        )}
+                      </span>
+                    ))}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                     歌曲数: {album.size}
                   </Typography>
                   {album.company && (
-                    <Typography variant="body2" color="text.secondary" noWrap>
+                    <Typography 
+                      variant="body2" 
+                      color="text.secondary" 
+                      sx={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
                       发行: {album.company}
                     </Typography>
                   )}
@@ -846,6 +1027,46 @@ function SearchResultsPage() {
 
         {/* 主要内容区域 */}
         <Container maxWidth="xl" sx={{ py: 3 }}>
+          {/* 搜索提示信息 */}
+          {query && !loading && !titleLoading && !isSearching && !error && (
+            <Box sx={{ mb: 3 }}>
+              <Typography 
+                variant="body2" 
+                color="text.secondary" 
+                sx={{ 
+                  fontSize: '0.875rem',
+                  mb: 1
+                }}
+              >
+                {(() => {
+                  // 计算搜索结果数量
+                  let totalResults = 0;
+                  let resultType = '';
+                  
+                  if (isAISearch) {
+                    totalResults = aiSearchResults?.byDescription?.data?.length || 0;
+                    resultType = '首歌曲';
+                  } else {
+                    if (resultTab === 'songs') {
+                      totalResults = normalSearchResults?.songs?.length || 0;
+                      resultType = '首歌曲';
+                    } else if (resultTab === 'artists') {
+                      totalResults = normalSearchResults?.artists?.length || 0;
+                      resultType = '个歌手';
+                    } else if (resultTab === 'albums') {
+                      totalResults = normalSearchResults?.albums?.length || 0;
+                      resultType = '张专辑';
+                    } else if (resultTab === 'byTitle') {
+                      totalResults = byTitleResult?.data?.length || 0;
+                      resultType = '首相关歌曲';
+                    }
+                  }
+                  
+                  return `搜索"${query}"，找到 ${totalResults} ${resultType}`;
+                })()}
+              </Typography>
+            </Box>
+          )}
 
           {/* 结果类型选择Bar */}
           {!isAISearch && (
@@ -880,63 +1101,161 @@ function SearchResultsPage() {
           {/* 搜索结果 */}
           {!error && (
             <>
-              {isAISearch 
-                ? (loading 
-                    ? <Box sx={{ textAlign: "center", py: 6 }}>
+              {/* 模式切换提示 */}
+              {query && (
+                (() => {
+                  // 检查是否需要显示模式切换提示
+                  const hasCurrentModeResults = isAISearch 
+                    ? (aiSearchResults?.byDescription?.data?.length || 0) > 0
+                    : (
+                        (resultTab === "songs" && (normalSearchResults?.songs?.length || 0) > 0) ||
+                        (resultTab === "artists" && (normalSearchResults?.artists?.length || 0) > 0) ||
+                        (resultTab === "albums" && (normalSearchResults?.albums?.length || 0) > 0) ||
+                        (resultTab === "byTitle" && (byTitleResult?.data?.length || 0) > 0)
+                      );
+                  
+                  const hasOtherModeResults = !isAISearch 
+                    ? (aiSearchResults?.byDescription?.data?.length || 0) > 0
+                    : (
+                        (normalSearchResults?.songs?.length || 0) > 0 ||
+                        (normalSearchResults?.artists?.length || 0) > 0 ||
+                        (normalSearchResults?.albums?.length || 0) > 0 ||
+                        (byTitleResult?.data?.length || 0) > 0
+                      );
+
+                  // 如果当前模式没有结果但其他模式有结果，显示切换提示
+                  if (!hasCurrentModeResults && hasOtherModeResults && !loading && !titleLoading && !isSearching) {
+                    return (
+                      <Alert 
+                        severity="info" 
+                        sx={{ mb: 3 }}
+                        action={
+                          <Button 
+                            color="inherit" 
+                            size="small"
+                            onClick={handleImmediateSearch}
+                          >
+                            立即搜索
+                          </Button>
+                        }
+                      >
+                        已切换到{isAISearch ? 'AI搜索' : '普通搜索'}模式，点击"立即搜索"或重新输入关键词以获取新结果
+                      </Alert>
+                    );
+                  }
+                  return null;
+                })()
+              )}
+
+              {/* 显示当前模式的结果，如果没有则显示其他模式的结果 */}
+              {(() => {
+                if (isAISearch) {
+                  if (loading) {
+                    return (
+                      <Box sx={{ textAlign: "center", py: 6 }}>
                         <CircularProgress size={24} sx={{ mb: 2 }} />
                         <Typography variant="body1" color="text.secondary">
                           稍等一下噢o(*￣▽￣*)ブ 正在使用 AI 为您推荐描述相关歌曲...
                         </Typography>
                       </Box>
-                    : aiSearchResults && renderSongList(
-                        aiSearchResults.byDescription?.data, 
-                        "描述搜索结果"
-                      )
-                  )
-                : (
-                  <>
-                    {resultTab === "byTitle" ? (
-                      <>
-                        {titleLoading || !byTitleResult ? (
-                          <Box sx={{ textAlign: "center", py: 6 }}>
-                            <CircularProgress size={24} sx={{ mb: 2 }} />
-                            <Typography variant="body1" color="text.secondary">
-                              稍等一下噢o(*￣▽￣*)ブ 正在使用 AI 为您推荐主题相关歌曲...
-                            </Typography>
-                          </Box>
-                        ) : (
-                          renderSongList(byTitleResult.data, "主题相关歌曲推荐")
-                        )}
-                      </>
-                    ) : (
-                      loading ? (
-                        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-                          <CircularProgress />
-                        </Box>
-                      ) : (
+                    );
+                  } else if (aiSearchResults?.byDescription?.data?.length) {
+                    return renderSongList(aiSearchResults.byDescription.data, "AI搜索结果");
+                  } else {
+                    // AI搜索没有结果，尝试显示普通搜索结果
+                    if (normalSearchResults?.songs?.length) {
+                      return (
                         <>
-                          {resultTab === "songs" && renderSongList(normalSearchResults?.songs, "歌曲")}
-                          {resultTab === "artists" && renderArtistList(normalSearchResults?.artists)}
-                          {resultTab === "albums" && renderAlbumList(normalSearchResults?.albums)}
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontStyle: 'italic' }}>
+                            以下是普通搜索的结果，切换到AI搜索模式后点击搜索获取AI推荐
+                          </Typography>
+                          {renderSongList(normalSearchResults.songs, "歌曲 (普通搜索)")}
                         </>
-                      )
-                    )}
-                  </>
-                )
-              }
+                      );
+                    } else if (normalSearchResults?.artists?.length) {
+                      return (
+                        <>
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontStyle: 'italic' }}>
+                            以下是普通搜索的结果，切换到AI搜索模式后点击搜索获取AI推荐
+                          </Typography>
+                          {renderArtistList(normalSearchResults.artists)}
+                        </>
+                      );
+                    } else if (normalSearchResults?.albums?.length) {
+                      return (
+                        <>
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontStyle: 'italic' }}>
+                            以下是普通搜索的结果，切换到AI搜索模式后点击搜索获取AI推荐
+                          </Typography>
+                          {renderAlbumList(normalSearchResults.albums)}
+                        </>
+                      );
+                    } else if (byTitleResult?.data?.length) {
+                      return (
+                        <>
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontStyle: 'italic' }}>
+                            以下是主题推荐的结果，切换到AI搜索模式后点击搜索获取AI推荐
+                          </Typography>
+                          {renderSongList(byTitleResult.data, "主题相关歌曲推荐")}
+                        </>
+                      );
+                    }
+                  }
+                } else {
+                  // 普通搜索模式
+                  if (resultTab === "byTitle") {
+                    if (titleLoading) {
+                      return (
+                        <Box sx={{ textAlign: "center", py: 6 }}>
+                          <CircularProgress size={24} sx={{ mb: 2 }} />
+                          <Typography variant="body1" color="text.secondary">
+                            稍等一下噢o(*￣▽￣*)ブ 正在使用 AI 为您推荐主题相关歌曲...
+                          </Typography>
+                        </Box>
+                      );
+                    } else if (byTitleResult?.data?.length) {
+                      return renderSongList(byTitleResult.data, "主题相关歌曲推荐");
+                    }
+                  } else if (loading) {
+                    return (
+                      <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+                        <CircularProgress />
+                      </Box>
+                    );
+                  } else {
+                    // 显示当前tab的结果
+                    if (resultTab === "songs" && normalSearchResults?.songs?.length) {
+                      return renderSongList(normalSearchResults.songs, "歌曲");
+                    } else if (resultTab === "artists" && normalSearchResults?.artists?.length) {
+                      return renderArtistList(normalSearchResults.artists);
+                    } else if (resultTab === "albums" && normalSearchResults?.albums?.length) {
+                      return renderAlbumList(normalSearchResults.albums);
+                    }
+                  }
+
+                  // 普通搜索当前tab没有结果，尝试显示AI搜索结果
+                  if (aiSearchResults?.byDescription?.data?.length) {
+                    return (
+                      <>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontStyle: 'italic' }}>
+                          以下是AI搜索的结果，切换搜索类型或重新搜索获取更多结果
+                        </Typography>
+                        {renderSongList(aiSearchResults.byDescription.data, "AI搜索结果")}
+                      </>
+                    );
+                  }
+                }
+
+                return null;
+              })()}
 
               {/* 无结果提示 */}
-              {!loading && !titleLoading &&((isAISearch &&
-                aiSearchResults &&
-                !aiSearchResults.byDescription?.data?.length) ||
-                (!isAISearch &&
-                  (
-                    (resultTab === "songs" && (!normalSearchResults?.songs || normalSearchResults.songs.length === 0)) ||
-                    (resultTab === "artists" && (!normalSearchResults?.artists || normalSearchResults.artists.length === 0)) ||
-                    (resultTab === "albums" && (!normalSearchResults?.albums || normalSearchResults.albums.length === 0)) ||
-                    (resultTab === "byTitle" && (!byTitleResult?.data || byTitleResult.data.length === 0))
-                  )
-                )) && (
+              {!loading && !titleLoading && !isSearching && query && 
+                !(aiSearchResults?.byDescription?.data?.length) &&
+                !(normalSearchResults?.songs?.length) &&
+                !(normalSearchResults?.artists?.length) &&
+                !(normalSearchResults?.albums?.length) &&
+                !(byTitleResult?.data?.length) && (
                 <Box sx={{ textAlign: "center", py: 8 }}>
                   <Typography variant="h6" color="text.secondary">
                     没有找到相关结果

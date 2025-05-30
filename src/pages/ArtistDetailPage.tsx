@@ -36,7 +36,7 @@ import {
 import Sidebar from "../components/Sidebar";
 import { userApi } from "../api/user";
 import { searchApi, ArtistDetail, Song } from "../api/search";
-import { usePlayer } from "../contexts/PlayerContext";
+import { usePlayer, PlaylistType } from "../contexts/PlayerContext";
 
 function ArtistDetailPage() {
   const { artistId } = useParams<{ artistId: string }>();
@@ -161,6 +161,30 @@ function ArtistDetailPage() {
       checkFavoriteStatus(songIds);
     }
   }, [artistDetail, user, page, checkFavoriteStatus]);
+
+  // 播放歌手的歌曲，创建歌手播放列表
+  const handlePlaySong = (song: Song) => {
+    if (!artistDetail) return;
+
+    // 创建歌手播放列表，包含所有歌曲
+    const artistPlaylist = {
+      type: PlaylistType.ARTIST,
+      title: `${artistDetail.artist.name} - 热门歌曲`,
+      songs: artistDetail.songs.map(s => ({
+        id: s.id,
+        name: s.name,
+        ar: s.ar || [{ name: artistDetail.artist.name }],
+        al: {
+          name: s.al?.name || '未知专辑',
+          picUrl: s.al?.picUrl || 'https://picsum.photos/300/300?random=' + s.id,
+          id: s.al?.id
+        }
+      })),
+      currentIndex: 0 // 这会在playSong中被正确设置
+    };
+
+    playSong(song, artistPlaylist);
+  };
 
   return (
     <Box
@@ -382,7 +406,7 @@ function ArtistDetailPage() {
                               ? "primary.main"
                               : "transparent",
                         }}
-                        onClick={() => playSong(song)}
+                        onClick={() => handlePlaySong(song)}
                       >
                         <CardMedia
                           component="img"
@@ -490,7 +514,7 @@ function ArtistDetailPage() {
                               }}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                playSong(song);
+                                handlePlaySong(song);
                               }}
                             >
                               {playerState.currentSongId === song.id &&

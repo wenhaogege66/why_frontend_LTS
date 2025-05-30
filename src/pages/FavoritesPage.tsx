@@ -33,7 +33,7 @@ import {
 import Sidebar from "../components/Sidebar";
 import { userApi } from "../api/user";
 import { favoriteApi, Favorite } from "../api/favorite";
-import { usePlayer } from "../contexts/PlayerContext";
+import { usePlayer, PlaylistType } from "../contexts/PlayerContext";
 
 function FavoritesPage() {
   const navigate = useNavigate();
@@ -93,7 +93,23 @@ function FavoritesPage() {
       },
     };
 
-    await playSong(song);
+    // 创建收藏播放列表
+    const favoritesPlaylist = {
+      type: PlaylistType.FAVORITES,
+      title: '我的收藏',
+      songs: favorites.map(f => ({
+        id: f.song_id,
+        name: f.song_name,
+        ar: [{ name: f.artist_name }],
+        al: {
+          name: f.album_name,
+          picUrl: f.pic_url,
+        },
+      })),
+      currentIndex: 0 // 这会在playSong中被正确设置
+    };
+
+    await playSong(song, favoritesPlaylist);
   };
 
   // 获取收藏列表

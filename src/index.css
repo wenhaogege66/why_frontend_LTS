@@ -51,7 +51,7 @@ button:hover {
 }
 button:focus,
 button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  outline: none !important;
 }
 
 @media (prefers-color-scheme: light) {
@@ -65,4 +65,39 @@ button:focus-visible {
   button {
     background-color: #f9f9f9;
   }
+}
+
+/* 移除所有元素的默认焦点边框 */
+*,
+*:before,
+*:after {
+  outline: none !important;
+}
+
+/* 移除按钮的焦点样式 */
+button:focus,
+button:focus-visible {
+  outline: none !important;
+}
+
+/* 移除输入框的焦点样式 */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none !important;
+}
+
+/* 移除链接的焦点样式 */
+a:focus,
+a:focus-visible {
+  outline: none !important;
+}
+
+/* 移除所有Material-UI组件的焦点样式 */
+.MuiButton-root:focus,
+.MuiIconButton-root:focus,
+.MuiCard-root:focus,
+.MuiMenuItem-root:focus,
+.MuiListItem-root:focus {
+  outline: none !important;
 }
