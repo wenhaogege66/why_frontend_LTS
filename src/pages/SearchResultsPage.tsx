@@ -74,14 +74,18 @@ function SearchResultsPage() {
   const [albumPage, setAlbumPage] = useState(1);
   const itemsPerPage = 12;
   
+  
 
   //分类展示
   const [resultTab, setResultTab] = useState<"songs" | "artists" | "albums" | "byTitle">("songs");
   const [byTitleResult, setByTitleResult] = useState<any>(null);
 
+  // 从 URL 参数中获取 ai 参数,并设置初始 isAISearch 状态
+  const aiParam = searchParams.get("ai");
+  const [isAISearch, setIsAISearch] = useState(aiParam === "1");
   
   // AI搜索切换状态
-  const [isAISearch, setIsAISearch] = useState(false);
+  // const [isAISearch, setIsAISearch] = useState(false);
 
   // 搜索结果状态
   const [aiSearchResults, setAiSearchResults] =
@@ -136,9 +140,22 @@ function SearchResultsPage() {
       // 如果输入框不为空白字符
       // 导航到 /search 路由，并将查询内容作为 URL 参数 'q' 传递
       // encodeURIComponent 用于编码特殊字符，防止 URL 问题
-      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      // navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
       // 可选：清空搜索框
-      setSearchQuery("");
+      const url = `/search?q=${encodeURIComponent(searchQuery.trim())}${isAISearch ? "&ai=1" : ""}`;
+      navigate(url);
+      setSearchQuery('');
+    }
+  };
+
+  // 修改 AI 搜索切换处理器
+  const handleAISearchToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newIsAISearch = e.target.checked;
+    setIsAISearch(newIsAISearch);
+    // 切换时也更新 URL
+    if (searchParams.get("q")) {
+      const url = `/search?q=${encodeURIComponent(searchParams.get("q") || "")}${newIsAISearch ? "&ai=1" : ""}`;
+      navigate(url);
     }
   };
 
@@ -712,7 +729,8 @@ function SearchResultsPage() {
                 control={
                   <Switch
                     checked={isAISearch}
-                    onChange={(e) => setIsAISearch(e.target.checked)}
+                    // onChange={(e) => setIsAISearch(e.target.checked)}
+                    onChange={handleAISearchToggle}  // 使用新的处理器
                     color="primary"
                     size="small"
                   />
