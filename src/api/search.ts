@@ -194,7 +194,7 @@ export const searchByAlbum = async (
 };
 
 /**
- * 普通搜索（综合搜索歌曲、歌手、专辑）
+ * 普通搜索（综合搜索歌曲、歌手、专辑、title）
  */
 export const normalSearch = async (
   params: NormalSearchParams
