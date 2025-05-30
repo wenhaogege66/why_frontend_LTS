@@ -290,7 +290,7 @@ const Register = () => {
                             }}
                         />
 
-                         {/*密码强度条*/}
+                        {/*密码强度条*/}
                         {formData.password && (
                             <Box sx={{ mt: 1, mb: 2 }}>
                                 <LinearProgress

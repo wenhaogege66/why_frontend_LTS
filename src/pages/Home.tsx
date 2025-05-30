@@ -16,9 +16,9 @@ import {
     Menu,
     MenuItem,
     ListItemIcon,
-    ListItemText, Button
+    ListItemText, Button, Switch, FormControlLabel
 } from '@mui/material';
-import { Search, Menu as MenuIcon, Notifications, AccountCircle, PlayArrow, Login, PersonAdd, Logout } from '@mui/icons-material';
+import { Search, Menu as MenuIcon, Notifications, AccountCircle, PlayArrow, Login, PersonAdd, Logout, SmartToy } from '@mui/icons-material';
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import { useNavigate } from 'react-router-dom';
@@ -34,6 +34,7 @@ const Home = () => {
     const [currentSong, setCurrentSong] = useState<any>(null);
     const [playlist, setPlaylist] = useState<any[]>([]);
     const [favorites, setFavorites] = useState<number[]>([]);
+    const [isAISearch, setIsAISearch] = useState(false);
 
     const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
         setAnchorEl(event.currentTarget);
@@ -110,7 +111,7 @@ const Home = () => {
         },
         {
             id: 3,
-            title: "热门歌单",
+            title: "心情电台",
             description: "大家都在听什么",
             imageUrl: "https://picsum.photos/800/400?random=3"
         }
@@ -182,13 +183,7 @@ const Home = () => {
     const handleSearchKeyPress = (event: React.KeyboardEvent<HTMLInputElement>) => {
         if (event.key === 'Enter') {
             event.preventDefault(); // 阻止默认的表单提交行为
-            if (searchQuery.trim()) { // 如果输入框不为空白字符
-                // 导航到 /search 路由，并将查询内容作为 URL 参数 'q' 传递
-                // encodeURIComponent 用于编码特殊字符，防止 URL 问题
-                navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-                // 可选：清空搜索框
-                setSearchQuery('');
-            }
+            handleSearchSubmit(); // 调用搜索提交函数
         }
     };
 
@@ -198,7 +193,10 @@ const Home = () => {
         if (searchQuery.trim()) { // 如果输入框不为空白字符
             // 导航到 /search 路由，并将查询内容作为 URL 参数 'q' 传递
             // encodeURIComponent 用于编码特殊字符，防止 URL 问题
-            navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+            // 带上 ai 参数
+            const url = `/search?q=${encodeURIComponent(searchQuery.trim())}${isAISearch ? "&ai=1" : ""}`;
+            navigate(url);
+            setSearchQuery('');
             // 可选：清空搜索框
             setSearchQuery('');
         }
@@ -261,6 +259,44 @@ const Home = () => {
 
                         {/* 搜索框 TextField 和搜索按钮 */}
                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            {/* AI搜索开关 */}
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={isAISearch}
+                                        onChange={(e) => setIsAISearch(e.target.checked)}
+                                        color="primary"
+                                        size="small"
+                                    />
+                                }
+                                label={
+                                    <Box sx={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        mr: 2 // 与搜索框保持间距
+                                    }}>
+                                        <SmartToy
+                                            sx={{
+                                                mr: 0.5,
+                                                fontSize: '1.2rem',
+                                                color: isAISearch ? "primary.main" : "text.secondary",
+                                            }}
+                                        />
+                                        <Typography
+                                            variant="body2"
+                                            sx={{
+                                                color: isAISearch ? "primary.main" : "text.secondary"
+                                            }}
+                                        >
+                                            AI搜索
+                                        </Typography>
+                                    </Box>
+                                }
+                                sx={{
+                                    mr: 2,
+                                    mb: 0 // 重置 margin-bottom
+                                }}
+                            />
                             <TextField
                                 variant="outlined"
                                 placeholder="搜索歌曲或歌手..."

@@ -210,8 +210,8 @@ function SearchResultsPage() {
       aiSearchResults.byDescription?.data?.forEach((song) =>
         songIds.push(song.id)
       );
-      aiSearchResults.byMood?.data?.forEach((song) => songIds.push(song.id));
-      aiSearchResults.byTitle?.data?.forEach((song) => songIds.push(song.id));
+      // aiSearchResults.byMood?.data?.forEach((song) => songIds.push(song.id));
+      // aiSearchResults.byTitle?.data?.forEach((song) => songIds.push(song.id));
     } else if (!isAISearch && normalSearchResults?.songs) {
       // 普通搜索结果只检查当前页的歌曲
       const startIndex = (songPage - 1) * itemsPerPage;
@@ -240,8 +240,8 @@ function SearchResultsPage() {
     if (isAISearch && aiSearchResults) {
       const allSongs = [
         ...(aiSearchResults.byDescription?.data || []),
-        ...(aiSearchResults.byMood?.data || []),
-        ...(aiSearchResults.byTitle?.data || []),
+        // ...(aiSearchResults.byMood?.data || []),
+        // ...(aiSearchResults.byTitle?.data || []),
       ];
       return allSongs.find((song) => song.id === songId) || null;
     } else if (!isAISearch && normalSearchResults?.songs) {
@@ -661,6 +661,40 @@ function SearchResultsPage() {
 
             {/* 搜索框 TextField 和搜索按钮 */}
             <Box sx={{ display: "flex", alignItems: "center" }}>
+              {/* AI搜索开关 */}
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={isAISearch}
+                    onChange={(e) => setIsAISearch(e.target.checked)}
+                    color="primary"
+                    size="small"
+                  />
+                }
+                label={
+                  <Box sx={{ display: "flex", alignItems: "center", mr: 1 }}>
+                    <SmartToy
+                      sx={{
+                        mr: 0.5,
+                        fontSize: "1.2rem",
+                        color: isAISearch ? "primary.main" : "text.secondary",
+                      }}
+                    />
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: isAISearch ? "primary.main" : "text.secondary",
+                      }}
+                    >
+                      AI搜索
+                    </Typography>
+                  </Box>
+                }
+                sx={{
+                  mr: 2,
+                  mb: 0,
+                }}
+              />
               <TextField
                 variant="outlined"
                 placeholder="搜索歌曲或歌手..."
@@ -748,49 +782,6 @@ function SearchResultsPage() {
 
         {/* 主要内容区域 */}
         <Container maxWidth="xl" sx={{ py: 3 }}>
-          {/* 搜索模式切换 */}
-          <Box
-            sx={{
-              mb: 3,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <Typography variant="h4" sx={{ fontWeight: 600, color: "#000" }}>
-              搜索结果: "{query}"
-            </Typography>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={isAISearch}
-                  onChange={(e) => setIsAISearch(e.target.checked)}
-                  color="primary"
-                />
-              }
-              label={
-                <Box sx={{ display: "flex", alignItems: "center" }}>
-                  <SmartToy
-                    sx={{
-                      mr: 1,
-                      color: isAISearch ? "primary.main" : "text.secondary",
-                    }}
-                  />
-                  AI搜索
-                </Box>
-              }
-            />
-          </Box>
-
-          {/* 搜索模式提示 */}
-          <Box sx={{ mb: 3 }}>
-            <Chip
-              icon={isAISearch ? <SmartToy /> : <Search />}
-              label={isAISearch ? "AI智能搜索模式" : "普通搜索模式"}
-              color={isAISearch ? "primary" : "default"}
-              variant={isAISearch ? "filled" : "outlined"}
-            />
-          </Box>
 
           {/* 加载状态 */}
           {loading && (
@@ -817,14 +808,6 @@ function SearchResultsPage() {
                         aiSearchResults.byDescription?.data,
                         "描述搜索结果"
                       )}
-                      {renderSongList(
-                        aiSearchResults.byMood?.data,
-                        "心情搜索结果"
-                      )}
-                      {renderSongList(
-                        aiSearchResults.byTitle?.data,
-                        "主题搜索结果"
-                      )}
                     </>
                   )
                 : // 普通搜索结果
@@ -833,15 +816,17 @@ function SearchResultsPage() {
                       {renderSongList(normalSearchResults.songs, "歌曲")}
                       {renderArtistList(normalSearchResults.artists)}
                       {renderAlbumList(normalSearchResults.albums)}
+                      {renderSongList(
+                        normalSearchResults.byTitle?.data,
+                        "主题相关歌曲推荐"
+                      )}
                     </>
                   )}
 
               {/* 无结果提示 */}
               {((isAISearch &&
                 aiSearchResults &&
-                !aiSearchResults.byDescription?.data?.length &&
-                !aiSearchResults.byMood?.data?.length &&
-                !aiSearchResults.byTitle?.data?.length) ||
+                !aiSearchResults.byDescription?.data?.length) ||
                 (!isAISearch &&
                   normalSearchResults &&
                   !normalSearchResults.songs?.length &&
