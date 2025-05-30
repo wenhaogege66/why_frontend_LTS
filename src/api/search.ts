@@ -22,8 +22,6 @@ export interface NormalSearchParams {
 // 定义统一搜索的返回结果结构（包含所有可能的分类）
 export interface UnifiedSearchResults {
   byDescription?: SearchResponse; // AI搜索-描述结果
-  byMood?: SearchResponse; // AI搜索-心情结果
-  byTitle?: SearchResponse; // AI搜索-主题结果
 }
 
 // 定义普通搜索的返回结果结构
@@ -31,6 +29,7 @@ export interface NormalSearchResults {
   songs?: Song[]; // 歌曲搜索结果
   artists?: ArtistResult[]; // 歌手搜索结果
   albums?: AlbumResult[]; // 专辑搜索结果
+  byTitle?: SearchResponse; // AI搜索-主题结果
 }
 
 interface DescribeSearchParams {
@@ -204,6 +203,7 @@ export const normalSearch = async (
     songs: () => searchByTitle(params),
     artists: () => searchByArtist(params),
     albums: () => searchByAlbum(params),
+    byTitle: () => searchApi.titleSearch({ title: params.keyword }), // AI搜索-主题
   };
 
   const keys = Object.keys(apiCalls) as (keyof typeof apiCalls)[];
@@ -224,6 +224,8 @@ export const normalSearch = async (
           results.artists = result.value.data as ArtistResult[];
         } else if (key === "albums") {
           results.albums = result.value.data as AlbumResult[];
+        } else if (key === "byTitle") {
+          results.byTitle = result.value as SearchResponse; // AI搜索-主题结果
         }
       } else {
         console.error(`普通搜索: ${key} 失败！原因：`, result.reason);
@@ -367,10 +369,6 @@ export const unifiedSearch = async (
   // Map function names (implementation) to result keys (semantic meaning)
   const apiCalls = {
     byDescription: () => searchApi.describeSearch({ describe: query }),
-    byMood: () => searchApi.spiritSearch({ spirit: query }),
-    byTitle: () => searchApi.titleSearch({ title: query }),
-    // Add other calls
-    // byArtist: () => searchApi.artistSearch({ artist: query, page_wanted, page_size }),
   };
 
   const keys = Object.keys(apiCalls) as (keyof typeof apiCalls)[];
@@ -392,10 +390,6 @@ export const unifiedSearch = async (
         // 需要进行类型断言，因为 result.value 是 unknown
         if (key === "byDescription")
           results.byDescription = result.value as SearchResponse;
-        else if (key === "byMood")
-          results.byMood = result.value as SearchResponse;
-        else if (key === "byTitle")
-          results.byTitle = result.value as SearchResponse;
         // ... 根据 key 赋值其他结果
       } else {
         // status === 'rejected'，这表明对应的 API 调用失败了。
