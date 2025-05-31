@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -54,12 +54,10 @@ function AlbumDetailPage() {
   // 使用全局播放器
   const {
     playerState,
-    currentSongInfo,
     favoriteStates,
     playSong,
     toggleFavorite,
     checkFavoriteStatus,
-    currentLyrics,
   } = usePlayer();
 
   // 分页状态

@@ -205,7 +205,7 @@ const Home = () => {
             minHeight: '100vh',
             width: '100vw',
             overflow: 'hidden',
-            pb: 7 // 为播放器留出空间
+            pb: 5 // 为播放器留出空间
         }}>
             <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
             
@@ -406,8 +406,8 @@ const Home = () => {
                                         onClick={playlist.onClick}
                                         sx={{
                                             position: 'relative',
-                                            height: 200,
-                                            borderRadius: 3,
+                                            height: 250,
+                                            borderRadius: 5,
                                             overflow: 'hidden',
                                             cursor: 'pointer',
                                             '&:hover': {
@@ -422,7 +422,7 @@ const Home = () => {
                                     >
                                         <CardMedia
                                             component="img"
-                                            height="200"
+                                            height="250"
                                             image={playlist.imageUrl}
                                             alt={playlist.title}
                                             sx={{
@@ -443,7 +443,7 @@ const Home = () => {
                                                 display: 'flex',
                                                 flexDirection: 'column',
                                                 justifyContent: 'flex-end',
-                                                p: 2
+                                                p: 3
                                             }}
                                         >
                                             <Typography variant="h6" sx={{ color: 'white', mb: 1 }}>

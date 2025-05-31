@@ -5,7 +5,6 @@ import React, {
   useRef,
   useEffect,
   ReactNode,
-  useCallback,
 } from "react";
 import { searchApi } from "../api/search";
 import { favoriteApi, FavoriteCreateData } from "../api/favorite";
