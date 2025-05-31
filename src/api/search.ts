@@ -552,6 +552,47 @@ export const getAlbumDetail = async (
   }
 };
 
+// 猜你喜欢接口
+export interface GuessYouLikeResponse {
+  code: number;
+  message: string;
+  data: Song[];
+  metadata: {
+    current_page: number;
+    page_size: number;
+    total_pages: number;
+  };
+}
+
+/**
+ * 猜你喜欢 - 根据用户收藏夹的音乐进行推荐
+ */
+export const guessYouLike = async (abortController?: AbortController): Promise<GuessYouLikeResponse> => {
+  try {
+    const response = await api.get<GuessYouLikeResponse>("/api/search/guess/", {
+      signal: abortController?.signal
+    });
+
+    if (response.data.code !== 200) {
+      const errorMessage =
+        response.data.message ||
+        `Backend returned non-200 code: ${response.data.code}`;
+      console.error("Backend Logical Error:", response.data.code, errorMessage);
+      throw new Error(errorMessage);
+    }
+
+    return response.data;
+  } catch (error) {
+    // 如果是用户主动取消的请求，不抛出错误
+    if (axios.isAxiosError(error) && error.code === 'ERR_CANCELED') {
+      console.log('Request was cancelled');
+      throw error;
+    }
+    handleError(error);
+    throw error;
+  }
+};
+
 export const searchApi = {
   // 普通搜索
   searchByTitle,
@@ -568,4 +609,6 @@ export const searchApi = {
   // 详情页面
   getArtistDetail,
   getAlbumDetail,
+  // 推荐功能
+  guessYouLike,
 };

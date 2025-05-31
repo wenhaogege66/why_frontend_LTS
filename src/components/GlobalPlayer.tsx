@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Box,
   Paper,
@@ -18,11 +18,18 @@ import {
   Favorite,
   FavoriteBorder,
   HourglassEmpty,
+  QueueMusic,
+  Repeat,
+  RepeatOne,
+  Shuffle,
 } from "@mui/icons-material";
-import { usePlayer } from "../contexts/PlayerContext";
+import { usePlayer, PlayMode } from "../contexts/PlayerContext";
 import FullScreenLyrics from "./FullScreenLyrics";
+import PlaylistPanel from "./PlaylistPanel";
 
 const GlobalPlayer: React.FC = () => {
+  const [playlistPanelOpen, setPlaylistPanelOpen] = useState(false);
+
   const {
     playerState,
     currentSongInfo,
@@ -35,6 +42,12 @@ const GlobalPlayer: React.FC = () => {
     toggleFavorite,
     seekTo,
     currentLyrics,
+    playNext,
+    playPrevious,
+    hasNext,
+    hasPrevious,
+    togglePlayMode,
+    playlist,
   } = usePlayer();
 
   // 格式化时间为 MM:SS
@@ -168,7 +181,16 @@ const GlobalPlayer: React.FC = () => {
 
           {/* 播放控制 */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <IconButton>
+            <IconButton
+              onClick={playPrevious}
+              disabled={!hasPrevious()}
+              sx={{
+                color: hasPrevious() ? "primary.main" : "text.disabled",
+                "&:hover": {
+                  bgcolor: hasPrevious() ? "primary.light" : "transparent",
+                },
+              }}
+            >
               <SkipPrevious />
             </IconButton>
             <IconButton
@@ -198,7 +220,16 @@ const GlobalPlayer: React.FC = () => {
                 <PlayArrow />
               )}
             </IconButton>
-            <IconButton>
+            <IconButton
+              onClick={playNext}
+              disabled={!hasNext()}
+              sx={{
+                color: hasNext() ? "primary.main" : "text.disabled",
+                "&:hover": {
+                  bgcolor: hasNext() ? "primary.light" : "transparent",
+                },
+              }}
+            >
               <SkipNext />
             </IconButton>
           </Box>
@@ -244,15 +275,39 @@ const GlobalPlayer: React.FC = () => {
             </Box>
           </Box>
 
-          {/* 音量控制 */}
+          {/* 音量控制和功能按钮 */}
           <Box
             sx={{
               display: "flex",
               alignItems: "center",
               gap: 1,
-              minWidth: 120,
+              minWidth: 200,
             }}
           >
+            {/* 播放模式按钮 */}
+            <IconButton 
+              onClick={togglePlayMode} 
+              size="small"
+              sx={{
+                color: "primary.main",
+              }}
+            >
+              {playerState.playMode === PlayMode.ORDER && <Repeat />}
+              {playerState.playMode === PlayMode.REPEAT_ONE && <RepeatOne />}
+              {playerState.playMode === PlayMode.SHUFFLE && <Shuffle />}
+            </IconButton>
+
+            {/* 播放列表按钮 */}
+            <IconButton 
+              onClick={() => setPlaylistPanelOpen(true)} 
+              size="small"
+              sx={{
+                color: playlist ? "primary.main" : "text.secondary",
+              }}
+            >
+              <QueueMusic />
+            </IconButton>
+
             <IconButton onClick={toggleMute} size="small">
               {playerState.isMuted || playerState.volume === 0 ? (
                 <VolumeOff />
@@ -294,6 +349,12 @@ const GlobalPlayer: React.FC = () => {
         onToggleMute={toggleMute}
         onToggleFavorite={() => toggleFavorite(currentSongInfo)}
         onSeek={seekTo}
+      />
+
+      {/* 播放列表面板 */}
+      <PlaylistPanel
+        open={playlistPanelOpen}
+        onClose={() => setPlaylistPanelOpen(false)}
       />
     </>
   );

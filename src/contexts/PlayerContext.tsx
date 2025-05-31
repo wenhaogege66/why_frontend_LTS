@@ -5,6 +5,7 @@ import React, {
   useRef,
   useEffect,
   ReactNode,
+  useCallback,
 } from "react";
 import { searchApi } from "../api/search";
 import { favoriteApi, FavoriteCreateData } from "../api/favorite";
@@ -19,6 +20,33 @@ export interface Song {
   al: { name: string; picUrl: string; id?: number };
 }
 
+// 播放列表类型枚举
+export enum PlaylistType {
+  HOME_RECOMMEND = "home_recommend",
+  SEARCH_RESULTS = "search_results", 
+  FAVORITES = "favorites",
+  ARTIST = "artist",
+  ALBUM = "album",
+  MOOD = "mood",
+  RECOMMEND = "recommend",
+  CUSTOM = "custom"
+}
+
+// 播放列表接口
+export interface Playlist {
+  type: PlaylistType;
+  title: string;
+  songs: Song[];
+  currentIndex: number;
+}
+
+// 播放模式枚举
+export enum PlayMode {
+  ORDER = "order",        // 按顺序播放
+  REPEAT_ONE = "repeat_one", // 单曲循环
+  SHUFFLE = "shuffle"     // 随机播放
+}
+
 // 播放状态接口
 export interface PlayerState {
   isPlaying: boolean;
@@ -28,6 +56,7 @@ export interface PlayerState {
   volume: number;
   isMuted: boolean;
   isLoading: boolean;
+  playMode: PlayMode; // 替换isRepeat为playMode
 }
 
 // 播放器上下文接口
@@ -39,14 +68,26 @@ interface PlayerContextType {
   currentLyrics: string | null;
   favoriteStates: Record<number, boolean>;
 
+  // 播放列表状态
+  playlist: Playlist | null;
+
   // 播放控制方法
-  playSong: (song: Song) => Promise<void>;
+  playSong: (song: Song, playlist?: Playlist) => Promise<void>;
   pauseSong: () => void;
   resumeSong: () => void;
   togglePlayPause: () => void;
   setVolume: (volume: number) => void;
   toggleMute: () => void;
   seekTo: (time: number) => void;
+  togglePlayMode: () => void;
+
+  // 播放列表控制方法
+  setPlaylist: (playlist: Playlist) => void;
+  playNext: () => Promise<void>;
+  playPrevious: () => Promise<void>;
+  playAtIndex: (index: number) => Promise<void>;
+  hasNext: () => boolean;
+  hasPrevious: () => boolean;
 
   // 收藏相关方法
   toggleFavorite: (song: Song) => Promise<void>;
@@ -77,12 +118,20 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
     volume: 50,
     isMuted: false,
     isLoading: false,
+    playMode: PlayMode.ORDER,
   });
 
   // 当前歌曲信息
   const [currentSongInfo, setCurrentSongInfo] = useState<Song | null>(null);
   const [currentSongUrl, setCurrentSongUrl] = useState<string | null>(null);
   const [currentLyrics, setCurrentLyrics] = useState<string | null>(null);
+
+  // 播放列表状态
+  const [playlist, setPlaylistState] = useState<Playlist | null>(null);
+
+  // 使用ref来存储最新状态，用于在事件回调中访问
+  const playlistRef = useRef<Playlist | null>(null);
+  const playModeRef = useRef<PlayMode>(PlayMode.ORDER);
 
   // 收藏状态
   const [favoriteStates, setFavoriteStates] = useState<Record<number, boolean>>(
@@ -91,6 +140,15 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
 
   // 全屏歌词状态
   const [fullScreenLyricsOpen, setFullScreenLyricsOpen] = useState(false);
+
+  // 同步状态到ref，用于事件回调中访问最新值
+  useEffect(() => {
+    playlistRef.current = playlist;
+  }, [playlist]);
+
+  useEffect(() => {
+    playModeRef.current = playerState.playMode;
+  }, [playerState.playMode]);
 
   // 音频引用
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -118,95 +176,178 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
 
   // 处理歌曲结束
   const handleSongEnd = () => {
+    console.log('歌曲播放结束');
+    
     setPlayerState((prev) => ({
       ...prev,
       isPlaying: false,
       currentTime: 0,
     }));
+
+    // 延迟执行自动播放逻辑，确保状态更新完成
+    setTimeout(() => {
+      handleAutoPlay();
+    }, 100);
+  };
+
+  // 自动播放逻辑
+  const handleAutoPlay = () => {
+    // 从ref获取当前最新的状态
+    const currentPlaylist = playlistRef.current;
+    const currentPlayMode = playModeRef.current;
+    
+    console.log('自动播放检查:', { 
+      currentPlaylist: currentPlaylist?.title, 
+      currentIndex: currentPlaylist?.currentIndex,
+      playlistLength: currentPlaylist?.songs.length,
+      currentPlayMode 
+    });
+
+    if (!currentPlaylist || !currentPlaylist.songs.length) {
+      console.log('没有播放列表或播放列表为空，停止播放');
+      return;
+    }
+
+    switch (currentPlayMode) {
+      case PlayMode.REPEAT_ONE:
+        console.log('单曲循环模式 - 重复播放当前歌曲');
+        const currentSong = currentPlaylist.songs[currentPlaylist.currentIndex];
+        if (currentSong) {
+          console.log('重复播放歌曲:', currentSong.name);
+          playSongInternal(currentSong, true); // 自动播放下一首
+        }
+        break;
+
+      case PlayMode.SHUFFLE:
+        console.log('随机播放模式 - 随机选择下一首');
+        if (currentPlaylist.songs.length > 1) {
+          let randomIndex;
+          do {
+            randomIndex = Math.floor(Math.random() * currentPlaylist.songs.length);
+          } while (randomIndex === currentPlaylist.currentIndex);
+          
+          const randomSong = currentPlaylist.songs[randomIndex];
+          console.log('随机播放歌曲:', randomSong.name, '索引:', randomIndex);
+          
+          const updatedPlaylist = {
+            ...currentPlaylist,
+            currentIndex: randomIndex
+          };
+          setPlaylistState(updatedPlaylist);
+          playSongInternal(randomSong, true); // 自动播放下一首
+        }
+        break;
+
+      case PlayMode.ORDER:
+      default:
+        console.log('顺序播放模式 - 播放下一首');
+        if (currentPlaylist.currentIndex < currentPlaylist.songs.length - 1) {
+          const nextIndex = currentPlaylist.currentIndex + 1;
+          const nextSong = currentPlaylist.songs[nextIndex];
+          
+          console.log('播放下一首歌曲:', nextSong.name, '索引:', nextIndex);
+          
+          const updatedPlaylist = {
+            ...currentPlaylist,
+            currentIndex: nextIndex
+          };
+          setPlaylistState(updatedPlaylist);
+          playSongInternal(nextSong, true); // 自动播放下一首
+        } else {
+          console.log('已到列表末尾，停止播放');
+        }
+        break;
+    }
   };
 
   // 初始化音频元素
   useEffect(() => {
     if (!audioRef.current) {
       audioRef.current = new Audio();
-
       // 设置音频属性以提高性能
       audioRef.current.preload = "auto";
-      // 移除 crossOrigin 设置，因为音频服务器不支持 CORS
-      // audioRef.current.crossOrigin = "anonymous";
-
-      audioRef.current.addEventListener("timeupdate", handleTimeUpdate);
-      audioRef.current.addEventListener("loadedmetadata", handleLoadedMetadata);
-      audioRef.current.addEventListener("ended", handleSongEnd);
-
-      // 添加错误处理
-      audioRef.current.addEventListener("error", (e) => {
-        console.error("音频播放错误:", e);
-        console.error("错误详情:", audioRef.current?.error);
-
-        // 根据错误类型提供更详细的信息
-        const error = audioRef.current?.error;
-        if (error) {
-          switch (error.code) {
-            case error.MEDIA_ERR_ABORTED:
-              console.error("音频播放被中止");
-              break;
-            case error.MEDIA_ERR_NETWORK:
-              console.error("网络错误导致音频下载失败");
-              break;
-            case error.MEDIA_ERR_DECODE:
-              console.error("音频解码失败");
-              break;
-            case error.MEDIA_ERR_SRC_NOT_SUPPORTED:
-              console.error("音频格式不支持或URL无效");
-              break;
-            default:
-              console.error("未知音频错误");
-          }
-        }
-
-        setPlayerState((prev) => ({
-          ...prev,
-          isPlaying: false,
-          isLoading: false,
-        }));
-      });
-
-      // 添加更多事件监听器用于调试
-      audioRef.current.addEventListener("loadstart", () => {
-        console.log("开始加载音频");
-      });
-
-      audioRef.current.addEventListener("canplay", () => {
-        console.log("音频可以播放");
-      });
-
-      audioRef.current.addEventListener("play", () => {
-        console.log("音频开始播放");
-      });
-
-      audioRef.current.addEventListener("pause", () => {
-        console.log("音频暂停");
-      });
     }
 
+    // 每次都重新绑定事件监听器，确保使用最新的函数
+    audioRef.current.addEventListener("timeupdate", handleTimeUpdate);
+    audioRef.current.addEventListener("loadedmetadata", handleLoadedMetadata);
+    audioRef.current.addEventListener("ended", handleSongEnd);
+
+    // 添加错误处理
+    audioRef.current.addEventListener("error", (e) => {
+      console.error("音频播放错误:", e);
+      console.error("错误详情:", audioRef.current?.error);
+
+      // 根据错误类型提供更详细的信息
+      const error = audioRef.current?.error;
+      if (error) {
+        switch (error.code) {
+          case error.MEDIA_ERR_ABORTED:
+            console.error("音频播放被中止");
+            break;
+          case error.MEDIA_ERR_NETWORK:
+            console.error("网络错误导致音频下载失败");
+            break;
+          case error.MEDIA_ERR_DECODE:
+            console.error("音频解码失败");
+            break;
+          case error.MEDIA_ERR_SRC_NOT_SUPPORTED:
+            console.error("音频格式不支持或URL无效");
+            break;
+          default:
+            console.error("未知音频错误");
+        }
+      }
+
+      setPlayerState((prev) => ({
+        ...prev,
+        isPlaying: false,
+        isLoading: false,
+      }));
+    });
+
+    // 添加更多事件监听器用于调试
+    audioRef.current.addEventListener("loadstart", () => {
+      console.log("开始加载音频");
+    });
+
+    audioRef.current.addEventListener("canplay", () => {
+      console.log("音频可以播放");
+    });
+
+    audioRef.current.addEventListener("play", () => {
+      console.log("音频开始播放");
+    });
+
+    audioRef.current.addEventListener("pause", () => {
+      console.log("音频暂停");
+    });
+
+    // 清理函数：移除事件监听器
     return () => {
       if (audioRef.current) {
         audioRef.current.removeEventListener("timeupdate", handleTimeUpdate);
-        audioRef.current.removeEventListener(
-          "loadedmetadata",
-          handleLoadedMetadata
-        );
+        audioRef.current.removeEventListener("loadedmetadata", handleLoadedMetadata);
         audioRef.current.removeEventListener("ended", handleSongEnd);
+      }
+    };
+  }, [handleSongEnd]); // 依赖handleSongEnd，确保每次函数更新时重新绑定
+
+  // 组件卸载时清理音频元素
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
       }
     };
   }, []);
 
-  // 播放歌曲
-  const playSong = async (song: Song) => {
+  // 播放歌曲 - 内部方法
+  const playSongInternal = async (song: Song, autoPlay: boolean = true) => {
     try {
+      console.log('playSongInternal 被调用:', song.name, '自动播放:', autoPlay);
+      
       // 如果已经在播放同一首歌，只需切换播放/暂停状态
       if (playerState.currentSongId === song.id) {
         if (playerState.isPlaying) {
@@ -276,23 +417,33 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
                 isLoading: false,
               }));
 
-              // 尝试自动播放
-              audioRef.current
-                .play()
-                .then(() => {
-                  setPlayerState((prev) => ({
-                    ...prev,
-                    isPlaying: true,
-                  }));
-                })
-                .catch((playError) => {
-                  console.log("自动播放被阻止，需要用户交互:", playError);
-                  // 不设置为播放状态，等待用户点击播放按钮
-                  setPlayerState((prev) => ({
-                    ...prev,
-                    isPlaying: false,
-                  }));
-                });
+              // 根据autoPlay参数决定是否自动播放
+              if (autoPlay) {
+                console.log('尝试自动播放歌曲:', song.name);
+                audioRef.current
+                  .play()
+                  .then(() => {
+                    console.log('自动播放成功:', song.name);
+                    setPlayerState((prev) => ({
+                      ...prev,
+                      isPlaying: true,
+                    }));
+                  })
+                  .catch((playError) => {
+                    console.log("自动播放被阻止，需要用户交互:", playError);
+                    // 不设置为播放状态，等待用户点击播放按钮
+                    setPlayerState((prev) => ({
+                      ...prev,
+                      isPlaying: false,
+                    }));
+                  });
+              } else {
+                console.log('不自动播放，等待用户操作');
+                setPlayerState((prev) => ({
+                  ...prev,
+                  isPlaying: false,
+                }));
+              }
             }
 
             // 移除事件监听器
@@ -330,6 +481,30 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
         isLoading: false,
       }));
     }
+  };
+
+  // 播放歌曲 - 外部方法
+  const playSong = async (song: Song, newPlaylist?: Playlist) => {
+    // 如果提供了新的播放列表，设置播放列表
+    if (newPlaylist) {
+      const songIndex = newPlaylist.songs.findIndex(s => s.id === song.id);
+      const updatedPlaylist = {
+        ...newPlaylist,
+        currentIndex: songIndex >= 0 ? songIndex : 0
+      };
+      setPlaylistState(updatedPlaylist);
+    } else if (playlist) {
+      // 如果当前有播放列表，更新当前歌曲的索引
+      const songIndex = playlist.songs.findIndex(s => s.id === song.id);
+      if (songIndex >= 0) {
+        setPlaylistState({
+          ...playlist,
+          currentIndex: songIndex
+        });
+      }
+    }
+
+    await playSongInternal(song, true); // 用户主动播放，自动开始播放
   };
 
   // 暂停歌曲
@@ -453,6 +628,157 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
     }
   };
 
+  // 设置播放列表
+  const setPlaylist = (newPlaylist: Playlist) => {
+    setPlaylistState(newPlaylist);
+  };
+
+  // 播放下一首
+  const playNext = async () => {
+    if (!playlist) return;
+    
+    switch (playerState.playMode) {
+      case PlayMode.SHUFFLE:
+        // 随机播放：随机选择下一首
+        if (playlist.songs.length > 1) {
+          let randomIndex;
+          do {
+            randomIndex = Math.floor(Math.random() * playlist.songs.length);
+          } while (randomIndex === playlist.currentIndex);
+          
+          const randomSong = playlist.songs[randomIndex];
+          setPlaylistState({
+            ...playlist,
+            currentIndex: randomIndex
+          });
+          await playSongInternal(randomSong, true); // 用户主动切换，自动播放
+        }
+        break;
+        
+      case PlayMode.REPEAT_ONE:
+      case PlayMode.ORDER:
+      default:
+        // 按顺序播放下一首
+        if (!hasNext()) return;
+        
+        const nextIndex = playlist.currentIndex + 1;
+        const nextSong = playlist.songs[nextIndex];
+        
+        setPlaylistState({
+          ...playlist,
+          currentIndex: nextIndex
+        });
+        
+        await playSongInternal(nextSong, true); // 用户主动切换，自动播放
+        break;
+    }
+  };
+
+  // 播放上一首
+  const playPrevious = async () => {
+    if (!playlist) return;
+    
+    switch (playerState.playMode) {
+      case PlayMode.SHUFFLE:
+        // 随机播放：随机选择上一首
+        if (playlist.songs.length > 1) {
+          let randomIndex;
+          do {
+            randomIndex = Math.floor(Math.random() * playlist.songs.length);
+          } while (randomIndex === playlist.currentIndex);
+          
+          const randomSong = playlist.songs[randomIndex];
+          setPlaylistState({
+            ...playlist,
+            currentIndex: randomIndex
+          });
+          await playSongInternal(randomSong, true); // 用户主动切换，自动播放
+        }
+        break;
+        
+      case PlayMode.REPEAT_ONE:
+      case PlayMode.ORDER:
+      default:
+        // 按顺序播放上一首
+        if (!hasPrevious()) return;
+        
+        const prevIndex = playlist.currentIndex - 1;
+        const prevSong = playlist.songs[prevIndex];
+        
+        setPlaylistState({
+          ...playlist,
+          currentIndex: prevIndex
+        });
+        
+        await playSongInternal(prevSong, true); // 用户主动切换，自动播放
+        break;
+    }
+  };
+
+  // 播放指定索引的歌曲
+  const playAtIndex = async (index: number) => {
+    if (!playlist || index < 0 || index >= playlist.songs.length) return;
+    
+    const song = playlist.songs[index];
+    
+    setPlaylistState({
+      ...playlist,
+      currentIndex: index
+    });
+    
+    await playSongInternal(song, true); // 用户主动选择，自动播放
+  };
+
+  // 是否有下一首
+  const hasNext = () => {
+    if (!playlist) return false;
+    
+    // 随机播放模式下，只要有多于1首歌曲就可以切换
+    if (playerState.playMode === PlayMode.SHUFFLE) {
+      return playlist.songs.length > 1;
+    }
+    
+    // 其他模式按顺序判断
+    return playlist.currentIndex < playlist.songs.length - 1;
+  };
+
+  // 是否有上一首
+  const hasPrevious = () => {
+    if (!playlist) return false;
+    
+    // 随机播放模式下，只要有多于1首歌曲就可以切换
+    if (playerState.playMode === PlayMode.SHUFFLE) {
+      return playlist.songs.length > 1;
+    }
+    
+    // 其他模式按顺序判断
+    return playlist.currentIndex > 0;
+  };
+
+  // 切换播放模式
+  const togglePlayMode = () => {
+    setPlayerState((prev) => {
+      let newPlayMode: PlayMode;
+      switch (prev.playMode) {
+        case PlayMode.ORDER:
+          newPlayMode = PlayMode.REPEAT_ONE;
+          break;
+        case PlayMode.REPEAT_ONE:
+          newPlayMode = PlayMode.SHUFFLE;
+          break;
+        case PlayMode.SHUFFLE:
+          newPlayMode = PlayMode.ORDER;
+          break;
+        default:
+          newPlayMode = PlayMode.ORDER;
+      }
+      return {
+        ...prev,
+        playMode: newPlayMode,
+      };
+    });
+  };
+
   const contextValue: PlayerContextType = {
     // 状态
     playerState,
@@ -460,6 +786,9 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
     currentSongUrl,
     currentLyrics,
     favoriteStates,
+
+    // 播放列表状态
+    playlist,
 
     // 播放控制方法
     playSong,
@@ -469,6 +798,7 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
     setVolume,
     toggleMute,
     seekTo,
+    togglePlayMode,
 
     // 收藏相关方法
     toggleFavorite,
@@ -477,6 +807,14 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
     // 全屏歌词
     fullScreenLyricsOpen,
     setFullScreenLyricsOpen,
+
+    // 播放列表控制方法
+    setPlaylist,
+    playNext,
+    playPrevious,
+    playAtIndex,
+    hasNext,
+    hasPrevious,
   };
 
   return (

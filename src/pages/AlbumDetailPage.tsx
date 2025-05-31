@@ -35,7 +35,7 @@ import {
 import Sidebar from "../components/Sidebar";
 import { userApi } from "../api/user";
 import { searchApi, AlbumDetail, Song } from "../api/search";
-import { usePlayer } from "../contexts/PlayerContext";
+import { usePlayer, PlaylistType } from "../contexts/PlayerContext";
 
 // 移除本地播放状态接口，使用全局播放器
 
@@ -163,6 +163,30 @@ function AlbumDetailPage() {
       checkFavoriteStatus(songIds);
     }
   }, [albumDetail, user, page, checkFavoriteStatus]);
+
+  // 播放专辑的歌曲，创建专辑播放列表
+  const handlePlaySong = (song: Song) => {
+    if (!albumDetail) return;
+
+    // 创建专辑播放列表，包含所有歌曲
+    const albumPlaylist = {
+      type: PlaylistType.ALBUM,
+      title: `${albumDetail.album.name} - ${albumDetail.album.artist.name}`,
+      songs: albumDetail.songs.map(s => ({
+        id: s.id,
+        name: s.name,
+        ar: s.ar || [{ name: albumDetail.album.artist.name }],
+        al: {
+          name: s.al?.name || albumDetail.album.name,
+          picUrl: s.al?.picUrl || albumDetail.album.picUrl,
+          id: s.al?.id || albumDetail.album.id
+        }
+      })),
+      currentIndex: 0 // 这会在playSong中被正确设置
+    };
+
+    playSong(song, albumPlaylist);
+  };
 
   return (
     <Box
@@ -396,7 +420,7 @@ function AlbumDetailPage() {
                               ? "primary.main"
                               : "transparent",
                         }}
-                        onClick={() => playSong(song)}
+                        onClick={() => handlePlaySong(song)}
                       >
                         <CardMedia
                           component="img"
@@ -504,7 +528,7 @@ function AlbumDetailPage() {
                               }}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                playSong(song);
+                                handlePlaySong(song);
                               }}
                             >
                               {playerState.currentSongId === song.id &&

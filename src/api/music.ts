@@ -210,6 +210,17 @@ export const getPlayHistory = async () => {
   }
 };
 
+// 每日推荐接口
+export const getDailySongs = async () => {
+  try {
+    const response = await api.get("/api/search/newsong/");
+    return response.data;
+  } catch (error) {
+    console.error("获取每日推荐失败:", error);
+    throw error;
+  }
+};
+
 // 导出所有接口
 export const musicApi = {
   getSongs,
@@ -230,4 +241,5 @@ export const musicApi = {
   getTrendingSongs,
   getPersonalizedSongs,
   getPlayHistory,
+  getDailySongs,
 };

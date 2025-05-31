@@ -1,3 +1,4 @@
+//猜你喜欢推荐页面
 import {
     AppBar,
     Toolbar,
@@ -10,32 +11,57 @@ import {
     CardMedia,
     Grid,
     Container,
-    Paper,
     Menu,
     MenuItem,
     ListItemIcon,
-    ListItemText, Button, Switch, FormControlLabel
+    ListItemText,
+    Button,
+    CircularProgress,
+    Alert,
+    Chip,
+    Avatar,
+    Stack
 } from '@mui/material';
-import { Search, Menu as MenuIcon, Notifications, AccountCircle, PlayArrow, Login, PersonAdd, Logout, SmartToy, RotateLeft, RotateRight } from '@mui/icons-material';
+import { 
+    Search, 
+    Menu as MenuIcon, 
+    Notifications, 
+    AccountCircle, 
+    Login, 
+    PersonAdd, 
+    Logout, 
+    MusicNote, 
+    PlayArrow, 
+    Pause, 
+    Favorite, 
+    FavoriteBorder, 
+    Refresh,
+    AutoAwesome,
+    TrendingUp,
+    Lightbulb,
+    PersonalVideo,
+    RotateLeft,
+    RotateRight
+} from '@mui/icons-material';
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import { useNavigate } from 'react-router-dom';
 import { userApi } from '../api/user';
-import { getDailySongs } from '../api/music';
+import { guessYouLike } from '../api/search';
 import { usePlayer, PlaylistType } from '../contexts/PlayerContext';
 
-const Home = () => {
+const RecommendPage = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const navigate = useNavigate();
     const [user, setUser] = useState<any>(null);
-    const [isAISearch, setIsAISearch] = useState(false);
-    const [dailySongs, setDailySongs] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [recommendations, setRecommendations] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [favoriteStates, setFavoriteStates] = useState<{ [key: number]: boolean }>({});
     const [currentOffset, setCurrentOffset] = useState(0);
-    
-    // 使用全局播放器
-    const { playSong } = usePlayer();
+    const { playerState, playSong } = usePlayer();
 
     const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
         setAnchorEl(event.currentTarget);
@@ -60,144 +86,128 @@ const Home = () => {
         navigate('/login');
     };
 
-    const handlePlaySong = (song: any) => {
-        // 转换歌曲格式以适配PlayerContext
-        const formattedSong = {
-            id: song.id,
-            name: song.name,
-            ar: song.ar || [{ name: '未知艺术家' }],
-            al: {
-                name: song.al?.name || '未知专辑',
-                picUrl: song.al?.picUrl || 'https://picsum.photos/300/300?random=' + song.id,
-                id: song.al?.id
-            }
-        };
-
-        // 创建播放列表，包含所有每日推荐歌曲
-        const dailyPlaylist = {
-            type: PlaylistType.HOME_RECOMMEND,
-            title: '每日推荐',
-            songs: dailySongs.map(s => ({
-                id: s.id,
-                name: s.name,
-                ar: s.ar || [{ name: '未知艺术家' }],
-                al: {
-                    name: s.al?.name || '未知专辑',
-                    picUrl: s.al?.picUrl || 'https://picsum.photos/300/300?random=' + s.id,
-                    id: s.al?.id
-                }
-            })),
-            currentIndex: 0 // 这会在playSong中被正确设置
-        };
-
-        playSong(formattedSong, dailyPlaylist);
-    };
-
-    // 点击艺术家跳转
-    const handleArtistClick = (artist: any) => {
-        if (artist.id) {
-            navigate(`/artist/${artist.id}`);
-        }
-    };
-
-    // 点击专辑跳转
-    const handleAlbumClick = (album: any) => {
-        if (album.id) {
-            navigate(`/album/${album.id}`);
-        }
-    };
-
-    // 旋转控制
-    const rotateLeft = () => {
-        setCurrentOffset(prev => prev + 1); // 改为索引偏移
-    };
-
-    const rotateRight = () => {
-        setCurrentOffset(prev => prev - 1); // 改为索引偏移
-    };
-
-    const featuredPlaylists = [
-        {
-            id: 1,
-            title: "猜你喜欢",
-            description: "根据你的喜好精心挑选",
-            imageUrl: "https://picsum.photos/800/400?random=1",
-            onClick: () => navigate('/recommend')
-        },
-        {
-            id: 3,
-            title: "心情电台",
-            description: "听你想听的声音",
-            imageUrl: "https://picsum.photos/800/400?random=3",
-            onClick: () => navigate('/mood')
-        }
-    ];
-
-    // 搜索框输入的 state
-    const [searchQuery, setSearchQuery] = useState('');
-
-    // 处理搜索输入框变化的事件
     const handleSearchInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         setSearchQuery(event.target.value);
     };
 
-    // 处理搜索框按键事件（特に回车键）
     const handleSearchKeyPress = (event: React.KeyboardEvent<HTMLInputElement>) => {
         if (event.key === 'Enter') {
-            event.preventDefault(); // 阻止默认的表单提交行为
-            handleSearchSubmit(); // 调用搜索提交函数
+            event.preventDefault();
+            if (searchQuery.trim()) {
+                navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+                setSearchQuery('');
+            }
         }
     };
 
     const handleSearchSubmit = () => {
-        // 这里放你的搜索逻辑
-        console.log('执行搜索:', searchQuery);
-        if (searchQuery.trim()) { // 如果输入框不为空白字符
-            // 导航到 /search 路由，并将查询内容作为 URL 参数 'q' 传递
-            // encodeURIComponent 用于编码特殊字符，防止 URL 问题
-            // 带上 ai 参数
-            const url = `/search?q=${encodeURIComponent(searchQuery.trim())}${isAISearch ? "&ai=1" : ""}`;
-            navigate(url);
-            setSearchQuery('');
-            // 可选：清空搜索框
+        if (searchQuery.trim()) {
+            navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
             setSearchQuery('');
         }
     };
 
-    // 获取用户信息
+    const fetchRecommendations = async (abortController?: AbortController) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const response = await guessYouLike(abortController);
+            // 检查请求是否被取消
+            if (!abortController?.signal.aborted) {
+                setRecommendations(response.data);
+            }
+        } catch (error: any) {
+            // 如果是取消的请求，直接返回不处理
+            if (error?.code === 'ERR_CANCELED') {
+                return;
+            }
+            // 只有在请求未被取消时才设置错误
+            if (!abortController?.signal.aborted) {
+                console.error('获取推荐失败:', error);
+                setError(error.message || '获取推荐失败，请稍后重试');
+            }
+        } finally {
+            // 只有在请求未被取消时才设置loading为false
+            if (!abortController?.signal.aborted) {
+                setLoading(false);
+            }
+        }
+    };
+
     useEffect(() => {
+        let isMounted = true;
+        const abortController = new AbortController();
+        
         const fetchUserProfile = async () => {
             try {
                 const response = await userApi.getProfile();
-                if (response.code === 200) {
+                if (response.code === 200 && isMounted) {
                     setUser(response.data);
+                    // 获取用户信息后再获取推荐
+                    if (isMounted) {
+                        fetchRecommendations(abortController);
+                    }
                 }
             } catch (error) {
-                console.error('获取用户信息失败:', error);
+                if (isMounted) {
+                    console.error('获取用户信息失败:', error);
+                    setError('请先登录以获取个性化推荐');
+                }
             }
         };
 
         fetchUserProfile();
-    }, []);
 
-    // 获取每日推荐
-    useEffect(() => {
-        const fetchDailySongs = async () => {
-            try {
-                setLoading(true);
-                const response = await getDailySongs();
-                if (response.code === 200) {
-                    setDailySongs(response.data);
-                }
-            } catch (error) {
-                console.error('获取每日推荐失败:', error);
-            } finally {
-                setLoading(false);
-            }
+        // Cleanup函数
+        return () => {
+            isMounted = false;
+            abortController.abort(); // 取消正在进行的请求
         };
-
-        fetchDailySongs();
     }, []);
+
+    const handlePlaySong = (songId: number) => {
+        const song = recommendations.find(s => s.id === songId);
+        if (song) {
+            // 创建推荐播放列表
+            const recommendPlaylist = {
+                type: PlaylistType.RECOMMEND,
+                title: '猜你喜欢',
+                songs: recommendations.map(s => ({
+                    id: s.id,
+                    name: s.name,
+                    ar: s.ar || [{ name: '未知艺术家' }],
+                    al: {
+                        name: s.al?.name || '未知专辑',
+                        picUrl: s.al?.picUrl || 'https://picsum.photos/300/300?random=' + s.id,
+                        id: s.al?.id
+                    }
+                })),
+                currentIndex: 0 // 这会在playSong中被正确设置
+            };
+
+            playSong(song, recommendPlaylist);
+        }
+    };
+
+    const toggleFavorite = (song: any) => {
+        setFavoriteStates(prev => ({
+            ...prev,
+            [song.id]: !prev[song.id]
+        }));
+    };
+
+    const formatPublishTime = (timestamp: number) => {
+        return new Date(timestamp).getFullYear();
+    };
+
+    // 旋转控制
+    const rotateLeft = () => {
+        setCurrentOffset(prev => prev + 1);
+    };
+
+    const rotateRight = () => {
+        setCurrentOffset(prev => prev - 1);
+    };
 
     return (
         <Box sx={{ 
@@ -205,7 +215,7 @@ const Home = () => {
             minHeight: '100vh',
             width: '100vw',
             overflow: 'hidden',
-            pb: 7 // 为播放器留出空间
+            pb: 7
         }}>
             <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
             
@@ -214,7 +224,8 @@ const Home = () => {
                 bgcolor: '#f8f9fa',
                 width: '100%',
                 overflow: 'auto',
-                height: '100vh'
+                height: '100vh',
+                pb: 7
             }}>
                 <AppBar
                     position="sticky"
@@ -238,46 +249,7 @@ const Home = () => {
                             WHY Music
                         </Typography>
 
-                        {/* 搜索框 TextField 和搜索按钮 */}
                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            {/* AI搜索开关 */}
-                            <FormControlLabel
-                                control={
-                                    <Switch
-                                        checked={isAISearch}
-                                        onChange={(e) => setIsAISearch(e.target.checked)}
-                                        color="primary"
-                                        size="small"
-                                    />
-                                }
-                                label={
-                                    <Box sx={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        mr: 2 // 与搜索框保持间距
-                                    }}>
-                                        <SmartToy
-                                            sx={{
-                                                mr: 0.5,
-                                                fontSize: '1.2rem',
-                                                color: isAISearch ? "primary.main" : "text.secondary",
-                                            }}
-                                        />
-                                        <Typography
-                                            variant="body2"
-                                            sx={{
-                                                color: isAISearch ? "primary.main" : "text.secondary"
-                                            }}
-                                        >
-                                            AI搜索
-                                        </Typography>
-                                    </Box>
-                                }
-                                sx={{
-                                    mr: 2,
-                                    mb: 0 // 重置 margin-bottom
-                                }}
-                            />
                             <TextField
                                 variant="outlined"
                                 placeholder="搜索歌曲或歌手..."
@@ -293,7 +265,7 @@ const Home = () => {
                                 sx={{
                                     width: 400,
                                     '& .MuiOutlinedInput-root': {
-                                        borderRadius: '4px 0 0 4px', // 左侧圆角
+                                        borderRadius: '4px 0 0 4px',
                                         '&:hover': {
                                             '& .MuiOutlinedInput-notchedOutline': {
                                                 borderColor: 'primary.main',
@@ -307,11 +279,11 @@ const Home = () => {
                             />
                             <Button
                                 variant="contained"
-                                onClick={handleSearchSubmit} // 使用和Enter键相同的处理函数
+                                onClick={handleSearchSubmit}
                                 sx={{
                                     minWidth: 'auto',
-                                    height: '40px', // 与TextField高度匹配
-                                    borderRadius: '0 4px 4px 0', // 右侧圆角
+                                    height: '40px',
+                                    borderRadius: '0 4px 4px 0',
                                     boxShadow: 'none',
                                     '&:hover': {
                                         boxShadow: 'none',
@@ -323,9 +295,7 @@ const Home = () => {
                         </Box>
 
                         <Box sx={{ display: 'flex', ml: 2 }}>
-                            <IconButton
-                                size="large"
-                            >
+                            <IconButton size="large">
                                 <Notifications />
                             </IconButton>
                             <IconButton
@@ -396,95 +366,152 @@ const Home = () => {
                 </AppBar>
 
                 <Container maxWidth="xl" sx={{ py: 4 }}>
-                    {/* 推荐展示框 */}
-                    <Box sx={{ mb: 6 }}>
-                        <Grid container spacing={3}>
-                            {featuredPlaylists.map((playlist) => (
-                                <Grid item xs={12} md={6} key={playlist.id}>
-                                    <Paper
-                                        elevation={0}
-                                        onClick={playlist.onClick}
-                                        sx={{
-                                            position: 'relative',
-                                            height: 200,
-                                            borderRadius: 3,
-                                            overflow: 'hidden',
-                                            cursor: 'pointer',
-                                            '&:hover': {
-                                                '& .overlay': {
-                                                    opacity: 1
-                                                },
-                                                '& img': {
-                                                    transform: 'scale(1.05)'
-                                                }
-                                            }
-                                        }}
-                                    >
-                                        <CardMedia
-                                            component="img"
-                                            height="200"
-                                            image={playlist.imageUrl}
-                                            alt={playlist.title}
-                                            sx={{
-                                                transition: 'transform 0.3s ease-in-out'
-                                            }}
+                    {/* 页面头部 */}
+                    <Box sx={{ mb: 4 }}>
+                        <Box sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'space-between',
+                            mb: 2
+                        }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                <Avatar 
+                                    sx={{ 
+                                        width: 56, 
+                                        height: 56, 
+                                        mr: 2,
+                                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                                    }}
+                                >
+                                    <AutoAwesome sx={{ fontSize: 28 }} />
+                                </Avatar>
+                                <Box>
+                                    <Typography variant="h4" sx={{ fontWeight: 600, color: 'text.primary', mb: 0.5 }}>
+                                        猜你喜欢
+                                    </Typography>
+                                    <Stack direction="row" spacing={1} alignItems="center">
+                                        <Chip 
+                                            icon={<Lightbulb />} 
+                                            label="AI智能推荐" 
+                                            size="small" 
+                                            color="primary" 
+                                            variant="outlined"
                                         />
-                                        <Box
-                                            className="overlay"
-                                            sx={{
-                                                position: 'absolute',
-                                                top: 0,
-                                                left: 0,
-                                                right: 0,
-                                                bottom: 0,
-                                                background: 'linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0.2))',
-                                                opacity: 0.8,
-                                                transition: 'opacity 0.3s ease-in-out',
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                justifyContent: 'flex-end',
-                                                p: 2
-                                            }}
-                                        >
-                                            <Typography variant="h6" sx={{ color: 'white', mb: 1 }}>
-                                                {playlist.title}
-                                            </Typography>
-                                            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>
-                                                {playlist.description}
-                                            </Typography>
-                                        </Box>
-                                    </Paper>
-                                </Grid>
-                            ))}
-                        </Grid>
+                                        <Chip 
+                                            icon={<PersonalVideo />} 
+                                            label="基于收藏偏好" 
+                                            size="small" 
+                                            color="secondary" 
+                                            variant="outlined"
+                                        />
+                                    </Stack>
+                                </Box>
+                            </Box>
+                            
+                            <IconButton 
+                                onClick={() => fetchRecommendations()}
+                                disabled={loading}
+                                sx={{ 
+                                    color: 'primary.main',
+                                    '&:hover': { 
+                                        backgroundColor: 'primary.light', 
+                                        color: 'white' 
+                                    }
+                                }}
+                            >
+                                <Refresh />
+                            </IconButton>
+                        </Box>
+                        
+                        <Typography variant="body1" color="text.secondary">
+                            根据您的收藏偏好，为您精心挑选的音乐推荐
+                        </Typography>
                     </Box>
 
-                    {/* 3D圆桌式每日推荐 */}
-                    <Box sx={{ mb: 6 }}>
-                        <Typography 
-                            variant="h4" 
-                            sx={{ 
-                                mb: -16, 
-                                fontWeight: 600,
-                                color: '#1a1a1a',
-                                textAlign: 'center'
-                            }}
+                    {/* 内容区域 */}
+                    {error ? (
+                        <Alert 
+                            severity="error" 
+                            sx={{ mb: 3 }}
+                            action={
+                                <Button 
+                                    color="inherit" 
+                                    size="small" 
+                                    onClick={() => fetchRecommendations()}
+                                >
+                                    重试
+                                </Button>
+                            }
                         >
-                            每日推荐
-                        </Typography>
-                        
-                        {loading ? (
+                            {error}
+                        </Alert>
+                    ) : null}
+
+                    {loading ? (
+                        <Box sx={{ 
+                            display: 'flex', 
+                            flexDirection: 'column',
+                            justifyContent: 'center', 
+                            alignItems: 'center',
+                            minHeight: 400,
+                            width: '100%',
+                            py: 8
+                        }}>
+                            <CircularProgress size={60} sx={{ mb: 3, color: 'primary.main' }} />
+                            <Typography variant="h6" sx={{ color: 'text.secondary', textAlign: 'center', mb: 1 }}>
+                                AI正在分析您的音乐偏好...
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: 'text.disabled', textAlign: 'center' }}>
+                                正在为您挑选最合适的音乐
+                            </Typography>
+                        </Box>
+                    ) : recommendations.length === 0 && !error ? (
+                        <Box sx={{ 
+                            textAlign: 'center', 
+                            py: 8,
+                            color: 'text.secondary'
+                        }}>
+                            <TrendingUp sx={{ fontSize: 80, opacity: 0.3, mb: 2 }} />
+                            <Typography variant="h6" sx={{ mb: 1 }}>暂无推荐内容</Typography>
+                            <Typography variant="body2" sx={{ mb: 2 }}>请先收藏一些喜欢的歌曲，我们会根据您的偏好进行推荐</Typography>
+                            <Button 
+                                variant="outlined" 
+                                onClick={() => navigate('/mood')}
+                                sx={{ mt: 2 }}
+                            >
+                                去心情电台发现音乐
+                            </Button>
+                        </Box>
+                    ) : (
+                        <>
                             <Box sx={{ 
-                                position: 'relative', 
-                                height: '400px', 
-                                perspective: '1200px',
-                                display: 'flex',
-                                justifyContent: 'center',
-                                alignItems: 'center'
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'space-between',
+                                mb: 3
                             }}>
-                                <Typography variant="h6" color="text.secondary">加载中...</Typography>
+                                <Typography
+                                    variant="h6"
+                                    sx={{
+                                        fontWeight: 600,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        color: "text.primary",
+                                    }}
+                                >
+                                    <MusicNote sx={{ mr: 1, color: "primary.main" }} />
+                                    为您推荐
+                                    <Chip 
+                                        label={`${recommendations.length} 首歌曲`} 
+                                        size="small" 
+                                        sx={{ ml: 2 }}
+                                        color="primary"
+                                        variant="outlined"
+                                    />
+                                </Typography>
                             </Box>
-                        ) : (
+
+                            {/* 3D圆桌式推荐展示 */}
                             <Box sx={{ 
                                 position: 'relative', 
                                 height: '700px', 
@@ -546,12 +573,12 @@ const Home = () => {
                                         transformStyle: 'preserve-3d',
                                     }}
                                 >
-                                    {dailySongs.map((song, index) => {
+                                    {recommendations.map((song, index) => {
                                         // 计算当前卡片在圆桌上的实际位置索引
-                                        const currentPositionIndex = (index + currentOffset + dailySongs.length) % dailySongs.length;
+                                        const currentPositionIndex = (index + currentOffset + recommendations.length) % recommendations.length;
                                         
                                         // 根据位置索引计算角度和坐标
-                                        const angle = (360 / dailySongs.length) * currentPositionIndex;
+                                        const angle = (360 / recommendations.length) * currentPositionIndex;
                                         const radius = 280;
                                         const x = Math.sin((angle * Math.PI) / 180) * radius;
                                         const z = Math.cos((angle * Math.PI) / 180) * radius;
@@ -574,6 +601,12 @@ const Home = () => {
                                                     cursor: 'pointer',
                                                     transition: 'all 0.8s cubic-bezier(0.4, 0.0, 0.2, 1)',
                                                     boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+                                                    border: playerState.currentSongId === song.id
+                                                        ? "3px solid"
+                                                        : "1px solid transparent",
+                                                    borderColor: playerState.currentSongId === song.id
+                                                        ? "primary.main"
+                                                        : "transparent",
                                                     '&:hover': {
                                                         transform: `translate(-50%, -50%) translate3d(${x}px, -20px, ${z}px) rotateY(${cardRotation}deg) scale(1.1)`,
                                                         boxShadow: '0 20px 50px rgba(0,0,0,0.4)',
@@ -584,12 +617,13 @@ const Home = () => {
                                                         }
                                                     }
                                                 }}
+                                                onClick={() => handlePlaySong(song.id)}
                                             >
                                                 <Box sx={{ position: 'relative', height: '200px' }}>
                                                     <CardMedia
                                                         component="img"
                                                         height="200"
-                                                        image={song.al?.picUrl || 'https://picsum.photos/300/300?random=' + song.id}
+                                                        image={song.al.picUrl}
                                                         alt={song.name}
                                                         sx={{
                                                             transition: 'transform 0.3s ease'
@@ -614,10 +648,42 @@ const Home = () => {
                                                         }}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            handlePlaySong(song);
+                                                            handlePlaySong(song.id);
                                                         }}
                                                     >
-                                                        <PlayArrow sx={{ color: 'primary.main', fontSize: '2rem' }} />
+                                                        {playerState.currentSongId === song.id && playerState.isPlaying ? (
+                                                            <Pause sx={{ color: 'primary.main', fontSize: '2rem' }} />
+                                                        ) : (
+                                                            <PlayArrow sx={{ color: 'primary.main', fontSize: '2rem' }} />
+                                                        )}
+                                                    </IconButton>
+
+                                                    {/* 收藏按钮 */}
+                                                    <IconButton
+                                                        size="small"
+                                                        sx={{
+                                                            position: 'absolute',
+                                                            top: 8,
+                                                            right: 8,
+                                                            color: favoriteStates[song.id]
+                                                                ? "error.main"
+                                                                : "white",
+                                                            backgroundColor: "rgba(0,0,0,0.3)",
+                                                            backdropFilter: "blur(10px)",
+                                                            "&:hover": {
+                                                                backgroundColor: "rgba(0,0,0,0.5)",
+                                                            },
+                                                        }}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            toggleFavorite(song);
+                                                        }}
+                                                    >
+                                                        {favoriteStates[song.id] ? (
+                                                            <Favorite fontSize="small" />
+                                                        ) : (
+                                                            <FavoriteBorder fontSize="small" />
+                                                        )}
                                                     </IconButton>
                                                 </Box>
                                                 
@@ -657,14 +723,8 @@ const Home = () => {
                                                                 textDecoration: 'underline'
                                                             }
                                                         }}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            if (song.ar?.[0]) {
-                                                                handleArtistClick(song.ar[0]);
-                                                            }
-                                                        }}
                                                     >
-                                                        {song.ar?.map((artist: any) => artist.name).join(', ')}
+                                                        {song.ar.map((artist: any) => artist.name).join(', ')}
                                                     </Typography>
                                                     
                                                     <Typography 
@@ -681,14 +741,8 @@ const Home = () => {
                                                                 textDecoration: 'underline'
                                                             }
                                                         }}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            if (song.al) {
-                                                                handleAlbumClick(song.al);
-                                                            }
-                                                        }}
                                                     >
-                                                        {song.al?.name}
+                                                        {song.al.name}
                                                     </Typography>
                                                 </CardContent>
                                             </Card>
@@ -696,12 +750,12 @@ const Home = () => {
                                     })}
                                 </Box>
                             </Box>
-                        )}
-                    </Box>
+                        </>
+                    )}
                 </Container>
             </Box>
         </Box>
     );
 };
 
-export default Home;
+export default RecommendPage; 
