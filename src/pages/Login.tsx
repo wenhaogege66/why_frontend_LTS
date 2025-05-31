@@ -27,42 +27,39 @@ const Login = () => {
         e.preventDefault();
         setError('');
 
+        // 验证表单
         if (!email || !password) {
-            setError('请输入有效和密码');
+            setError('登录请求失败: 请输入邮箱和密码');
             return;
         }
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            setError('登录请求失败: 请输入有效的邮箱地址');
+            return;
+        }
+
         try {
-            const response = await userApi.login({email, password});
             setLoading(true);
+            const response = await userApi.login({email, password});
             if (response.code === 200) {
                 setSuccess('登录成功！');
                 setTimeout(() => {
                     navigate('/');
                 }, 1000);
-            }else {
-                setError(response.message);
+            } else {
+                setError(`登录请求失败: ${response.message || '请检查邮箱和密码'}`);
             }
-        } catch (err: any) { // 使用 any 或更具体的错误类型
-            console.error("登录 API 调用失败:", err); // 在开发中打印完整错误以供调试
+        } catch (err: any) {
+            console.error("登录 API 调用失败:", err);
             if (err.response && err.response.data && err.response.data.message) {
-                let errorMessage = err.response.data.message;
-                if (err.response.data.errors) {
-
-                    const errorDetails = Object.values(err.response.data.errors)
-                        .map((fieldErrors: any) => fieldErrors[0]) // 取每个字段的第一个错误
-                        .join('; ');
-                    errorMessage += `: ${errorDetails}`;
-                }
-                setError(errorMessage);
+                setError(`登录请求失败: ${err.response.data.message}`);
             } else if (err.message) {
-                // 如果没有 response 对象，可能是网络错误或其他客户端错误
                 setError(`登录请求失败: ${err.message}`);
             } else {
-                // 最后的回退方案
-                setError('登录失败，请稍后重试');
+                setError('登录请求失败: 请稍后重试');
             }
         } finally {
-            setLoading(false); // 确保 loading 总是被关闭
+            setLoading(false);
         }
     };
 
@@ -215,6 +212,7 @@ const Login = () => {
                                     <IconButton
                                         onClick={() => setShowPassword(!showPassword)}
                                         edge="end"
+                                        data-testid="VisibilityIcon"
                                     >
                                         {showPassword ? <VisibilityOff /> : <Visibility />}
                                     </IconButton>

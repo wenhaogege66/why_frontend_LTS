@@ -334,12 +334,6 @@ const Settings = () => {
                     >
                         <MenuIcon />
                     </IconButton>
-                    <IconButton
-                        sx={{ mr: 2 }}
-                        onClick={() => navigate(-1)}
-                    >
-                        <ArrowBack />
-                    </IconButton>
                     <Typography variant="h6" sx={{ fontWeight: 500 }}>
                         账户设置
                     </Typography>

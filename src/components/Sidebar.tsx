@@ -1,5 +1,5 @@
 import { Drawer, List, ListItem, ListItemIcon, ListItemText, Divider, Box, Typography } from '@mui/material';
-import { Home, MusicNote, Favorite, Settings, AutoAwesome, Mood } from '@mui/icons-material';
+import { Home, Favorite, Settings, AutoAwesome, Mood } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
 const Sidebar = ({ open, onClose }: { open: boolean; onClose: () => void }) => {

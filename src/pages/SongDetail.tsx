@@ -31,9 +31,7 @@ import {
     Favorite,
     FavoriteBorder,
     Share,
-    MoreVert,
     Add,
-    Close
 } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';

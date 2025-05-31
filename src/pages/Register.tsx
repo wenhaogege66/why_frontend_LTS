@@ -17,7 +17,10 @@ import { userApi } from '../api/user';
 import { useNavigate } from 'react-router-dom';
 
 const Register = () => {
-    const [showPassword, setShowPassword] = useState(false);
+    const [showPassword, setShowPassword] = useState({
+        password: false,
+        confirmPassword: false
+    });
     const [formData, setFormData] = useState({
         nickname: '',
         email: '',
@@ -67,28 +70,35 @@ const Register = () => {
         }));
     };
 
+    const handlePasswordVisibility = (field: 'password' | 'confirmPassword') => {
+        setShowPassword(prev => ({
+            ...prev,
+            [field]: !prev[field]
+        }));
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
 
         // 验证表单
         if (!formData.email || !formData.password || !formData.confirmPassword || !formData.nickname) {
-            setError('请填写所有必填字段');
+            setError('注册请求失败: 请填写所有必填字段');
             return;
         }
 
         if (formData.password !== formData.confirmPassword) {
-            setError('两次输入的密码不一致');
+            setError('注册请求失败: 两次输入的密码不一致');
             return;
         }
 
         if (formData.password.length < 6) {
-            setError('密码长度至少为6位');
+            setError('注册请求失败: 密码长度至少为6位');
             return;
         }
 
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-            setError('请输入有效的邮箱地址');
+            setError('注册请求失败: 请输入有效的邮箱地址');
             return;
         }
 
@@ -101,34 +111,28 @@ const Register = () => {
                     navigate('/login');
                 }, 1000);
             } else {
-                // 如果 HTTP 是 2xx 但业务 code 不是 200 (虽然你的后端设计里这种情况不明确)
-                setError(response.message || '注册失败，请检查提交信息');
+                setError(`注册请求失败: ${response.message || '请检查提交信息'}`);
             }
-        } catch (err: any) { // 使用 any 或更具体的错误类型
-            console.error("注册 API 调用失败:", err); // 在开发中打印完整错误以供调试
+        } catch (err: any) {
+            console.error("注册 API 调用失败:", err);
             if (err.response && err.response.data && err.response.data.message) {
-                // 尝试从 axios 错误对象中提取后端返回的 message
                 let errorMessage = err.response.data.message;
-                // (可选) 尝试附加更详细的错误信息
                 if (err.response.data.errors) {
-
                     const errorDetails = Object.values(err.response.data.errors)
-                        .map((fieldErrors: any) => fieldErrors[0]) // 取每个字段的第一个错误
+                        .map((fieldErrors: any) => fieldErrors[0])
                         .join('; ');
                     errorMessage += `: ${errorDetails}`;
                 }
-                setError(errorMessage);
+                setError(`注册请求失败: ${errorMessage}`);
             } else if (err.message) {
-                // 如果没有 response 对象，可能是网络错误或其他客户端错误
                 setError(`注册请求失败: ${err.message}`);
             } else {
-                // 最后的回退方案
-                setError('注册失败，请稍后重试');
+                setError('注册请求失败: 请稍后重试');
             }
         } finally {
-            setLoading(false); // 确保 loading 总是被关闭
+            setLoading(false);
         }
-    }
+    };
 
     const ColorfulWaveBackground = () => (
         <div style={{
@@ -266,7 +270,7 @@ const Register = () => {
                             fullWidth
                             label="密码"
                             name="password"
-                            type={showPassword ? 'text' : 'password'}
+                            type={showPassword.password ? 'text' : 'password'}
                             variant="outlined"
                             margin="normal"
                             value={formData.password}
@@ -276,10 +280,11 @@ const Register = () => {
                                 endAdornment: (
                                     <InputAdornment position="end">
                                         <IconButton
-                                            onClick={() => setShowPassword(!showPassword)}
+                                            onClick={() => handlePasswordVisibility('password')}
                                             edge="end"
+                                            data-testid="VisibilityIcon"
                                         >
-                                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                                            {showPassword.password ? <VisibilityOff /> : <Visibility />}
                                         </IconButton>
                                     </InputAdornment>
                                 ),
@@ -317,7 +322,7 @@ const Register = () => {
                             fullWidth
                             label="确认密码"
                             name="confirmPassword"
-                            type={showPassword ? 'text' : 'password'}
+                            type={showPassword.confirmPassword ? 'text' : 'password'}
                             variant="outlined"
                             margin="normal"
                             value={formData.confirmPassword}
@@ -327,10 +332,11 @@ const Register = () => {
                                 endAdornment: (
                                     <InputAdornment position="end">
                                         <IconButton
-                                            onClick={() => setShowPassword(!showPassword)}
+                                            onClick={() => handlePasswordVisibility('confirmPassword')}
                                             edge="end"
+                                            data-testid="VisibilityIcon"
                                         >
-                                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                                            {showPassword.confirmPassword ? <VisibilityOff /> : <Visibility />}
                                         </IconButton>
                                     </InputAdornment>
                                 ),

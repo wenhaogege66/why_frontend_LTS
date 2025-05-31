@@ -23,7 +23,6 @@ import {
   AppBar,
   Switch,
   FormControlLabel,
-  Chip,
   Tabs,
   Tab
 } from "@mui/material";
@@ -48,7 +47,6 @@ import {
   unifiedSearch,
   UnifiedSearchResults,
   Song,
-  normalSearch,
   NormalSearchResults,
   ArtistResult,
   AlbumResult,
@@ -104,7 +102,6 @@ function SearchResultsPage() {
   // 使用全局播放器
   const {
     playerState,
-    currentSongInfo,
     favoriteStates,
     playSong,
     toggleFavorite,
@@ -862,7 +859,7 @@ function SearchResultsPage() {
         minHeight: "100vh",
         width: "100vw",
         overflow: "hidden",
-        pb: 7, // 为播放器留出空间
+        pb: 13, // 为播放器留出空间
       }}
     >
       {/* 侧边栏 */}
