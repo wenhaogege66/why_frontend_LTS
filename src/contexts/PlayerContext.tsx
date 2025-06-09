@@ -17,6 +17,25 @@ export interface Song {
   name: string;
   ar: Array<{ name: string; id?: number }>;
   al: { name: string; picUrl: string; id?: number };
+  duration?: number;
+  quality?: AudioQuality;
+  downloadStatus?: DownloadStatus;
+}
+
+// 音质选择枚举
+export enum AudioQuality {
+  LOW = "low",        // 128kbps
+  MEDIUM = "medium",  // 320kbps
+  HIGH = "high",      // 无损
+  LOSSLESS = "lossless" // Hi-Res
+}
+
+// 下载状态枚举
+export enum DownloadStatus {
+  NOT_DOWNLOADED = "not_downloaded",
+  DOWNLOADING = "downloading",
+  DOWNLOADED = "downloaded",
+  FAILED = "failed"
 }
 
 // 播放列表类型枚举
@@ -28,7 +47,8 @@ export enum PlaylistType {
   ALBUM = "album",
   MOOD = "mood",
   RECOMMEND = "recommend",
-  CUSTOM = "custom"
+  CUSTOM = "custom",
+  QUEUE = "queue"  // 新增：播放队列
 }
 
 // 播放列表接口
@@ -43,7 +63,8 @@ export interface Playlist {
 export enum PlayMode {
   ORDER = "order",        // 按顺序播放
   REPEAT_ONE = "repeat_one", // 单曲循环
-  SHUFFLE = "shuffle"     // 随机播放
+  SHUFFLE = "shuffle",    // 随机播放
+  REPEAT_ALL = "repeat_all" // 列表循环
 }
 
 // 播放状态接口
@@ -55,7 +76,17 @@ export interface PlayerState {
   volume: number;
   isMuted: boolean;
   isLoading: boolean;
-  playMode: PlayMode; // 替换isRepeat为playMode
+  playMode: PlayMode;
+  audioQuality: AudioQuality;  // 新增：音质设置
+}
+
+// 下载管理器接口
+export interface DownloadManager {
+  downloadSong: (song: Song, quality?: AudioQuality) => Promise<void>;
+  cancelDownload: (songId: number) => void;
+  getDownloadedSongs: () => Song[];
+  deleteDownload: (songId: number) => Promise<void>;
+  getDownloadProgress: (songId: number) => number;
 }
 
 // 播放器上下文接口
@@ -67,8 +98,9 @@ interface PlayerContextType {
   currentLyrics: string | null;
   favoriteStates: Record<number, boolean>;
 
-  // 播放列表状态
+  // 播放列表状态  
   playlist: Playlist | null;
+  queue: Song[];  // 新增：播放队列
 
   // 播放控制方法
   playSong: (song: Song, playlist?: Playlist) => Promise<void>;
@@ -79,6 +111,7 @@ interface PlayerContextType {
   toggleMute: () => void;
   seekTo: (time: number) => void;
   togglePlayMode: () => void;
+  setAudioQuality: (quality: AudioQuality) => void;  // 新增：音质设置
 
   // 播放列表控制方法
   setPlaylist: (playlist: Playlist) => void;
@@ -87,6 +120,16 @@ interface PlayerContextType {
   playAtIndex: (index: number) => Promise<void>;
   hasNext: () => boolean;
   hasPrevious: () => boolean;
+
+  // 队列管理方法
+  addToQueue: (song: Song) => void;
+  addToQueueNext: (song: Song) => void;
+  removeFromQueue: (index: number) => void;
+  clearQueue: () => void;
+  moveInQueue: (fromIndex: number, toIndex: number) => void;
+
+  // 下载管理方法
+  downloadManager: DownloadManager;
 
   // 收藏相关方法
   toggleFavorite: (song: Song) => Promise<void>;
@@ -118,6 +161,7 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
     isMuted: false,
     isLoading: false,
     playMode: PlayMode.ORDER,
+    audioQuality: AudioQuality.MEDIUM,
   });
 
   // 当前歌曲信息
@@ -127,6 +171,13 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
 
   // 播放列表状态
   const [playlist, setPlaylistState] = useState<Playlist | null>(null);
+  
+  // 播放队列状态
+  const [queue, setQueue] = useState<Song[]>([]);
+  
+  // 下载状态管理
+  const [downloadStates, setDownloadStates] = useState<Record<number, DownloadStatus>>({});
+  const [downloadProgress, setDownloadProgress] = useState<Record<number, number>>({});
 
   // 使用ref来存储最新状态，用于在事件回调中访问
   const playlistRef = useRef<Playlist | null>(null);
@@ -234,6 +285,35 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
           };
           setPlaylistState(updatedPlaylist);
           playSongInternal(randomSong, true); // 自动播放下一首
+        }
+        break;
+
+      case PlayMode.REPEAT_ALL:
+        console.log('列表循环模式 - 播放下一首或重新开始');
+        if (currentPlaylist.currentIndex < currentPlaylist.songs.length - 1) {
+          // 播放下一首
+          const nextIndex = currentPlaylist.currentIndex + 1;
+          const nextSong = currentPlaylist.songs[nextIndex];
+          
+          console.log('播放下一首歌曲:', nextSong.name, '索引:', nextIndex);
+          
+          const updatedPlaylist = {
+            ...currentPlaylist,
+            currentIndex: nextIndex
+          };
+          setPlaylistState(updatedPlaylist);
+          playSongInternal(nextSong, true);
+        } else {
+          // 回到第一首
+          const firstSong = currentPlaylist.songs[0];
+          console.log('列表播放完毕，重新开始:', firstSong.name);
+          
+          const updatedPlaylist = {
+            ...currentPlaylist,
+            currentIndex: 0
+          };
+          setPlaylistState(updatedPlaylist);
+          playSongInternal(firstSong, true);
         }
         break;
 
@@ -760,6 +840,9 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
       let newPlayMode: PlayMode;
       switch (prev.playMode) {
         case PlayMode.ORDER:
+          newPlayMode = PlayMode.REPEAT_ALL;
+          break;
+        case PlayMode.REPEAT_ALL:
           newPlayMode = PlayMode.REPEAT_ONE;
           break;
         case PlayMode.REPEAT_ONE:
@@ -778,6 +861,188 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
     });
   };
 
+  // 设置音质
+  const setAudioQuality = (quality: AudioQuality) => {
+    setPlayerState((prev) => ({
+      ...prev,
+      audioQuality: quality,
+    }));
+  };
+
+  // 队列管理方法
+  const addToQueue = (song: Song) => {
+    setQueue((prev) => [...prev, song]);
+  };
+
+  const addToQueueNext = (song: Song) => {
+    if (!playlist) {
+      setQueue([song]);
+      return;
+    }
+    const currentIndex = playlist.currentIndex;
+    setQueue((prev) => [
+      ...prev.slice(0, currentIndex + 1),
+      song,
+      ...prev.slice(currentIndex + 1)
+    ]);
+  };
+
+  const removeFromQueue = (index: number) => {
+    setQueue((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const clearQueue = () => {
+    setQueue([]);
+  };
+
+  const moveInQueue = (fromIndex: number, toIndex: number) => {
+    setQueue((prev) => {
+      const newQueue = [...prev];
+      const [movedItem] = newQueue.splice(fromIndex, 1);
+      newQueue.splice(toIndex, 0, movedItem);
+      return newQueue;
+    });
+  };
+
+  // 下载管理器实现
+  const downloadManager: DownloadManager = {
+    downloadSong: async (song: Song, quality?: AudioQuality) => {
+      const targetQuality = quality || playerState.audioQuality;
+      
+      // 设置下载状态
+      setDownloadStates((prev) => ({
+        ...prev,
+        [song.id]: DownloadStatus.DOWNLOADING
+      }));
+      
+      setDownloadProgress((prev) => ({
+        ...prev,
+        [song.id]: 0
+      }));
+
+      try {
+        // 获取歌曲下载URL
+        const response = await searchApi.getSongPlayInfo(song.id);
+        if (response.code !== 200 || !response.data.url) {
+          throw new Error('无法获取下载链接');
+        }
+
+        const audioUrl = response.data.url;
+        
+        // 创建下载
+        const downloadResponse = await fetch(audioUrl);
+        if (!downloadResponse.ok) {
+          throw new Error('下载失败');
+        }
+
+        const contentLength = downloadResponse.headers.get('content-length');
+        const totalBytes = contentLength ? parseInt(contentLength, 10) : 0;
+
+        const reader = downloadResponse.body?.getReader();
+        if (!reader) {
+          throw new Error('无法读取响应流');
+        }
+
+        const chunks: Uint8Array[] = [];
+        let downloadedBytes = 0;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          chunks.push(value);
+          downloadedBytes += value.length;
+
+          // 更新下载进度
+          if (totalBytes > 0) {
+            const progress = Math.round((downloadedBytes / totalBytes) * 100);
+            setDownloadProgress((prev) => ({
+              ...prev,
+              [song.id]: progress
+            }));
+          }
+        }
+
+        // 合并数据块
+        const blob = new Blob(chunks, { type: 'audio/mpeg' });
+        
+        // 保存到本地存储（这里使用IndexedDB会更好）
+        const audioData = await blob.arrayBuffer();
+        const base64Data = btoa(String.fromCharCode(...new Uint8Array(audioData)));
+        
+        localStorage.setItem(`downloaded_song_${song.id}`, JSON.stringify({
+          song,
+          data: base64Data,
+          quality: targetQuality,
+          downloadDate: new Date().toISOString()
+        }));
+
+        // 更新下载状态
+        setDownloadStates((prev) => ({
+          ...prev,
+          [song.id]: DownloadStatus.DOWNLOADED
+        }));
+
+        setDownloadProgress((prev) => ({
+          ...prev,
+          [song.id]: 100
+        }));
+
+      } catch (error) {
+        console.error('下载失败:', error);
+        setDownloadStates((prev) => ({
+          ...prev,
+          [song.id]: DownloadStatus.FAILED
+        }));
+      }
+    },
+
+    cancelDownload: (songId: number) => {
+      setDownloadStates((prev) => ({
+        ...prev,
+        [songId]: DownloadStatus.NOT_DOWNLOADED
+      }));
+      setDownloadProgress((prev) => {
+        const newProgress = { ...prev };
+        delete newProgress[songId];
+        return newProgress;
+      });
+    },
+
+    getDownloadedSongs: () => {
+      const downloaded: Song[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith('downloaded_song_')) {
+          try {
+            const data = JSON.parse(localStorage.getItem(key) || '');
+            downloaded.push(data.song);
+          } catch (error) {
+            console.error('解析下载数据失败:', error);
+          }
+        }
+      }
+      return downloaded;
+    },
+
+    deleteDownload: async (songId: number) => {
+      localStorage.removeItem(`downloaded_song_${songId}`);
+      setDownloadStates((prev) => ({
+        ...prev,
+        [songId]: DownloadStatus.NOT_DOWNLOADED
+      }));
+      setDownloadProgress((prev) => {
+        const newProgress = { ...prev };
+        delete newProgress[songId];
+        return newProgress;
+      });
+    },
+
+    getDownloadProgress: (songId: number) => {
+      return downloadProgress[songId] || 0;
+    },
+  };
+
   const contextValue: PlayerContextType = {
     // 状态
     playerState,
@@ -788,6 +1053,7 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
 
     // 播放列表状态
     playlist,
+    queue,
 
     // 播放控制方法
     playSong,
@@ -798,14 +1064,7 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
     toggleMute,
     seekTo,
     togglePlayMode,
-
-    // 收藏相关方法
-    toggleFavorite,
-    checkFavoriteStatus,
-
-    // 全屏歌词
-    fullScreenLyricsOpen,
-    setFullScreenLyricsOpen,
+    setAudioQuality,
 
     // 播放列表控制方法
     setPlaylist,
@@ -814,6 +1073,24 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
     playAtIndex,
     hasNext,
     hasPrevious,
+
+    // 队列管理方法
+    addToQueue,
+    addToQueueNext,
+    removeFromQueue,
+    clearQueue,
+    moveInQueue,
+
+    // 下载管理方法
+    downloadManager,
+
+    // 收藏相关方法
+    toggleFavorite,
+    checkFavoriteStatus,
+
+    // 全屏歌词
+    fullScreenLyricsOpen,
+    setFullScreenLyricsOpen,
   };
 
   return (

@@ -22,13 +22,20 @@ import {
   Repeat,
   RepeatOne,
   Shuffle,
+  RepeatOnOutlined,
+  Download,
+  CloudDownload,
+  HighQuality,
 } from "@mui/icons-material";
 import { usePlayer, PlayMode } from "../contexts/PlayerContext";
 import FullScreenLyrics from "./FullScreenLyrics";
 import PlaylistPanel from "./PlaylistPanel";
+import AudioQualitySelector from "./AudioQualitySelector";
+import DownloadManager from "./DownloadManager";
 
 const GlobalPlayer: React.FC = () => {
   const [playlistPanelOpen, setPlaylistPanelOpen] = useState(false);
+  const [downloadManagerOpen, setDownloadManagerOpen] = useState(false);
 
   const {
     playerState,
@@ -48,7 +55,50 @@ const GlobalPlayer: React.FC = () => {
     hasPrevious,
     togglePlayMode,
     playlist,
+    downloadManager,
   } = usePlayer();
+
+  // 获取播放模式图标
+  const getPlayModeIcon = () => {
+    switch (playerState.playMode) {
+      case PlayMode.REPEAT_ONE:
+        return <RepeatOne />;
+      case PlayMode.REPEAT_ALL:
+        return <RepeatOnOutlined />;
+      case PlayMode.SHUFFLE:
+        return <Shuffle />;
+      case PlayMode.ORDER:
+      default:
+        return <Repeat />;
+    }
+  };
+
+  // 获取播放模式提示文本
+  const getPlayModeTooltip = () => {
+    switch (playerState.playMode) {
+      case PlayMode.REPEAT_ONE:
+        return "单曲循环";
+      case PlayMode.REPEAT_ALL:
+        return "列表循环";
+      case PlayMode.SHUFFLE:
+        return "随机播放";
+      case PlayMode.ORDER:
+      default:
+        return "顺序播放";
+    }
+  };
+
+  // 处理下载
+  const handleDownload = async () => {
+    if (currentSongInfo) {
+      try {
+        await downloadManager.downloadSong(currentSongInfo);
+        // 可以添加提示消息
+      } catch (error) {
+        console.error('下载失败:', error);
+      }
+    }
+  };
 
   // 格式化时间为 MM:SS
   const formatTime = (time: number) => {
@@ -288,19 +338,52 @@ const GlobalPlayer: React.FC = () => {
             <IconButton 
               onClick={togglePlayMode} 
               size="small"
+              title={getPlayModeTooltip()}
               sx={{
                 color: "primary.main",
               }}
             >
-              {playerState.playMode === PlayMode.ORDER && <Repeat />}
-              {playerState.playMode === PlayMode.REPEAT_ONE && <RepeatOne />}
-              {playerState.playMode === PlayMode.SHUFFLE && <Shuffle />}
+              {getPlayModeIcon()}
+            </IconButton>
+
+            {/* 下载按钮 */}
+            <IconButton 
+              onClick={handleDownload} 
+              size="small"
+              title="下载"
+              sx={{
+                color: "text.secondary",
+                "&:hover": {
+                  color: "primary.main",
+                },
+              }}
+            >
+              <Download />
+            </IconButton>
+
+            {/* 音质设置按钮 */}
+            <AudioQualitySelector compact />
+
+            {/* 下载管理按钮 */}
+            <IconButton 
+              onClick={() => setDownloadManagerOpen(true)} 
+              size="small"
+              title="下载管理"
+              sx={{
+                color: "text.secondary",
+                "&:hover": {
+                  color: "primary.main",
+                },
+              }}
+            >
+              <CloudDownload />
             </IconButton>
 
             {/* 播放列表按钮 */}
             <IconButton 
               onClick={() => setPlaylistPanelOpen(true)} 
               size="small"
+              title="播放队列"
               sx={{
                 color: playlist ? "primary.main" : "text.secondary",
               }}
@@ -356,8 +439,15 @@ const GlobalPlayer: React.FC = () => {
         open={playlistPanelOpen}
         onClose={() => setPlaylistPanelOpen(false)}
       />
+
+      {/* 下载管理器 */}
+      <DownloadManager
+        open={downloadManagerOpen}
+        onClose={() => setDownloadManagerOpen(false)}
+      />
     </>
   );
 };
 
 export default GlobalPlayer;
+
